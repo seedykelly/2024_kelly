@@ -60,163 +60,27 @@ check_brms <- function(model,             # brms model
   
 }
 ## ---- data_analysis ----
-behaviour_data<- read.csv(file="data/raw/bour_kelly_master_data.csv", header=TRUE, sep=",", dec=".")
-beetle_data<- read.csv(file="data/raw/Beetle_data.csv", header=TRUE, sep=",", dec=".")
+mobility_data<- read.csv(file="data/raw/giant_weta_behaviour.csv", header=TRUE, sep=",", dec=".")
+morphological_data<- read.csv(file="data/raw/morphology_giant_weta.csv", header=TRUE, sep=",", dec=".")
 
-# rename column headings
-behaviour_data_one <- behaviour_data %>%
-  rename(distance=Distance.moved.Center.point.Total.cm, mobility = Mobility.Body.fill.Mean.., activity = Activity.Within.arena.Mean.., time_in_centre = centre, trial = Trial, arena=Arena, id=ID, sex=Sex, treatment=Treatment) %>%
-  dplyr::select(-Subject.not.found, -Arena.settings) %>%
-  filter(escaped==0) %>%
-  dplyr::select(-escaped) %>%
-  filter(id!="H6EOHO" & trial!=11)
 
-behaviour_data_one[behaviour_data_one == "-"] <- NA
 
-behaviour_data_one$trial = as.factor(behaviour_data_one$trial)
-behaviour_data_one$sex = as.factor(behaviour_data_one$sex)
-behaviour_data_one$arena = as.factor(behaviour_data_one$arena)
-behaviour_data_one$treatment = as.factor(behaviour_data_one$treatment)
-behaviour_data_one$id = as.factor(behaviour_data_one$id)
-behaviour_data_one$latency_to_zone1 = as.numeric(behaviour_data_one$latency_to_zone1)
-behaviour_data_one$latency_to_zone2 = as.numeric(behaviour_data_one$latency_to_zone2)
-behaviour_data_one$latency_to_zone3 = as.numeric(behaviour_data_one$latency_to_zone3)
-behaviour_data_one$latency_to_zone4 = as.numeric(behaviour_data_one$latency_to_zone4)
-
-merged_data <-behaviour_data_one %>%
-  arrange(id, trial) %>%
-  group_by(id) %>%
-  #mutate(assay = row_number()) %>%
-  left_join(beetle_data %>% dplyr::select(id,age,mass_1,mass_2),
-            by = "id") %>%
-  ungroup() %>%
-  mutate(treatment = recode_factor(treatment,
-                                "High LPS" = "high",
-                                "Low LPS" = "low",
-                                "Saline" = "saline",
-                                "Injured" = "injured",
-                                "handled" = "handled"))
-
-merged_data_2 <- merged_data %>%
-  filter(!is.na(latency_to_zone1)) %>%
-  filter(!is.na(latency_to_zone2)) %>%
-  filter(!is.na(latency_to_zone3)) %>%
-  filter(!is.na(latency_to_zone4)) %>%
-  group_by(id, treatment) %>%
-  summarise(count=n()) %>%
-  filter(count==1) %>%
-  print(n=1000) #36 ids with only one observation
-
-merged_data_2 <- merged_data %>%
-  group_by(treatment, id) %>%
-  summarise(count=n()) %>%
-  filter(count==1) %>%
-  print(n=1000) #36 ids with only one observation
-
-merged_data_3 <- merged_data %>%
-  group_by(id) %>%
-  filter(n()>1) %>%
-  arrange(id, trial) %>%
-  mutate(assay = row_number())
-
-merged_data_3$age = as.factor(merged_data_3$age)
-
-merged_data_four <- merged_data_3 %>%
-  group_by(trial) %>%
-  mutate(across(contains('to_zone'), replace_na, 600)) %>%
-  mutate(explore_1 = pmax(latency_to_zone1, latency_to_zone2, latency_to_zone3, latency_to_zone4, na.rm = TRUE)) %>% 
-  mutate(explore=600-explore_1) %>%
-  dplyr::select(-latency_to_zone1, -latency_to_zone2, -latency_to_zone3, -latency_to_zone4) %>%
-  mutate(treatment_pooled = factor(if_else(treatment == "saline" | treatment == "injured" | treatment == "handled" , "control", treatment))) %>%
-  mutate(assay=factor(assay)) %>%
-  mutate(assay_centred= if_else(assay == 1, 0, 1)) %>%
-  mutate(assay_centred=factor(assay_centred))
-
-# merged_data_five %>%
-#   group_by(id) %>%
-#   summarise(n=n()) %>%
-#   filter(n==1) %>%
-#   #count(treatment_two) %>%
-#   print(n=1000) 
-
-# sample sizes
-# summary_1 <- merged_data_four %>%
-#   group_by(id, sex,age,treatment) %>%
-#   summarise(mean_activity=mean(distance), mean_explore=mean(explore), n=n()) %>%
-#   group_by(sex,age,treatment) %>%
-#   summarise(distance.x=mean(mean_activity),distance.sd= sd(mean_activity), explore.x=mean(mean_explore),explore.sd=sd(mean_activity), n=n()) %>%
-#   arrange(desc(treatment)) %>%
-#   pivot_wider(values_from = c(distance.x, distance.sd, explore.x, explore.sd, n), names_from = c("sex", "age")) %>%
-#   relocate(treatment,distance.x_Female_Young,distance.sd_Female_Young,explore.x_Female_Young,explore.sd_Female_Young,n_Female_Young,
-#            distance.x_Female_Old,distance.sd_Female_Old,explore.x_Female_Old,explore.sd_Female_Old,n_Female_Old,
-#            distance.x_Male_Young,distance.sd_Male_Young,explore.x_Male_Young,explore.sd_Male_Young,n_Male_Young,
-#            distance.x_Male_Old,distance.sd_Male_Old,explore.x_Male_Old,explore.sd_Male_Old,n_Male_Old) %>%
-#   mutate(across(c(2:5,7:10, 12:15,17:20), ~ sprintf("%0.2f", .x))) %>%
-#   unite(col='distance_female_young', c('distance.x_Female_Young', 'distance.sd_Female_Young'), sep=' ± ') %>%
-#   unite(col='explore_female_young', c('explore.x_Female_Young', 'explore.sd_Female_Young'), sep=' ± ') %>%
-#   unite(col='distance_female_old', c('distance.x_Female_Old', 'distance.sd_Female_Old'), sep=' ± ') %>%
-#   unite(col='explore_female_old', c('explore.x_Female_Old', 'explore.sd_Female_Old'), sep=' ± ') %>%
-#   unite(col='distance_male_young', c('distance.x_Male_Young', 'distance.sd_Male_Young'), sep=' ± ') %>%
-#   unite(col='explore_male_young', c('explore.x_Male_Young', 'explore.sd_Male_Young'), sep=' ± ') %>%
-#   unite(col='distance_male_old', c('distance.x_Male_Old', 'distance.sd_Male_Old'), sep=' ± ') %>%
-#   unite(col='explore_male_old', c('explore.x_Male_Old', 'explore.sd_Male_Old'), sep=' ± ')
-
-# sample sizes by assaytreatment# sample sizes by assay
-# summary_1 <- merged_data_four %>%
-#   group_by(id, age, treatment, sex, assay) %>%
-#   summarise(mean_distance=mean(distance), mean_mobility=mean(mobility), mean_activity=mean(activity), mean_explore=mean(explore), mean_centre=mean(time_in_centre), n=n()) %>%
-#   group_by(assay) %>%
-#   summarise(distance=mean(mean_distance), mobility=mean(mean_mobility), activity=mean(mean_activity), explore=mean(mean_explore), boldness=mean(mean_centre),n=n())
-
-# # distance data distributions
-# ggplot(merged_data_four, aes(x = factor(treatment), y = log(distance+1), fill=factor(assay)) ) + 
-#   ylab("Distance (cm)")+
-#   xlab("Treatment") +
-#   geom_boxplot() +
-#   facet_wrap(vars(sex, age))
-# 
-# # exploration data distributions
-# ggplot(merged_data_four, aes(x = factor(treatment), y = log(explore), fill=factor(assay)) ) + 
-#   ylab("Time to visit all four zones (s)")+
-#   xlab("Treatment") +
-#   geom_boxplot() +
-#   facet_wrap(vars(sex, age))
-
-mass_data <- merged_data_four %>%
-  group_by(id) %>%
-  filter(row_number()==1)
-
-mass <- aov(mass_1 ~ sex * age * treatment, data=mass_data)
-summary.aov(mass) # no differences
-
-mass_change <- glm(mass_2 ~ sex * age * treatment + mass_1, data=mass_data)
-summary(mass_change)
 
 ## brms model results for rmarkdown. All analyses for these models are conducted below. 
 fit_model.brms.activity.1 = readRDS(file = "data/processed/fit_model.brms.activity.1.rds")
 fit_model.brms.activity.2 = readRDS(file = "data/processed/fit_model.brms.activity.2.rds")
 
-fit_model.brms.explore.1 = readRDS(file = "data/processed/fit_model.brms.explore.1.rds")
-fit_model.brms.explore.2 = readRDS(file = "data/processed/fit_model.brms.explore.2.rds")
-
 activity_comp<-loo_compare(fit_model.brms.activity.1, fit_model.brms.activity.2, criterion = "loo") #  model 2 is best
-explore_comp<-loo_compare(fit_model.brms.explore.1, fit_model.brms.explore.2,criterion = "loo") #  model 2 is best
 
-load(file = "data/processed/contrasts.table.Va.RData")
-load(file = "data/processed/contrasts.table.Vw.RData")
-correlation.table <- readRDS(file = "data/processed/correlation.table.rda")
+# load(file = "data/processed/contrasts.table.Va.RData")
+# load(file = "data/processed/contrasts.table.Vw.RData")
+# correlation.table <- readRDS(file = "data/processed/correlation.table.rda")
 ## ---- end
 
-#### Bayesian analysis -- ACTIVITY ####
+#### Bayesian analysis ####
 
 seed=123456
 set.seed(seed)
-
-distanceBN<-bestNormalize(merged_data_four$distance)
-merged_data_four$distance.t <- distanceBN$x.t
-
-time.lab <- c("Before transformation", "After transformation")
-names(time.lab) <- c("before", "after")
 
 plot.dist.distance <- merged_data_four %>%
   dplyr::select(distance,distance.t) %>%
@@ -238,115 +102,39 @@ plot.dist.distance <- merged_data_four %>%
 # model.brms=bf(distance.t ~ sex*treatment + (0+treatment||id) + (0+sex||id), sigma ~ 0+treatment, sigma ~ 0+sex) #Royaute-Dochterman
 # model.brms=bf(distance.t ~ sex*treatment + (1|id))
 
-model.brms.activity.1 <- bf(scale(distance.t)~ sex * treatment * age * assay + (0+sex:age||gr(id, by = treatment)), sigma ~ 0+age:sex:treatment, family = gaussian) 
-fit_model.brms.activity.1 <- brm(model.brms.activity.1, data = merged_data_four, save_pars = save_pars(all = TRUE), warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4, file = 'data/processed/fit_model.brms.activity.1')
-summary(fit_model.brms.activity.1)
-fit_model.brms.activity.1 <- add_criterion(fit_model.brms.activity.1, "loo")
-# # 
-model.brms.activity.2 <- bf(scale(distance.t)~ sex+treatment+age + assay +(0+sex:age||gr(id, by = treatment)), sigma ~ 0+age:sex:treatment, family = gaussian) 
-fit_model.brms.activity.2 <- brm(model.brms.activity.2, save_pars = save_pars(all = TRUE), data = merged_data_four, warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4, file = 'data/processed/fit_model.brms.activity.2')
-summary(fit_model.brms.activity.2)
-fit_model.brms.activity.2 <- add_criterion(fit_model.brms.activity.2, "loo")
-# # 
-fixef(fit_model.brms.activity.2)[8,1]
+model.brms.mobility <- bf(scale(distance) ~ sex + (0+sex||gr(ID)), sigma ~ 0+sex, family = gaussian) 
+model.brms.mobility_1 <- brm(model.brms.mobility, data = mobility_data, save_pars = save_pars(all = TRUE), 
+                             warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4, file = 'data/processed/model.brms.mobility_1')
+summary(model.brms.mobility_1)
 
-get_variables(fit_model.brms.activity.2)
+get_variables(model.brms.mobility_1)
 
 # convergence and model check
 # pp_check(fit_model.brms.activity.4)
 # check_brms(fit_model.brms.activity.4)
 # mcmc_trace(plot(fit_model.brms.activity.4))
 
-# compare four models
-activity_comp<-loo_compare(fit_model.brms.activity.1, fit_model.brms.activity.2, fit_model.brms.activity.3,fit_model.brms.activity.4,criterion = "loo") #  model 4 is best
-
-# post <- 
-#   fit_model.brms.activity.4 %>%
-#   as_draws_df()
-# 
-# head(post)
-# 
-# post %>%
-#   transmute(mu_High = b_Intercept,
-#             mu_Low = b_Intercept + b_treatmentLowLPS,
-#             mu_Saline = b_Intercept + b_treatmentSaline,
-#             mu_Injured   = b_Intercept + b_treatmentInjured,
-#             mu_handled = b_Intercept + b_treatmenthandled) %>%
-#   gather() %>%
-#   group_by(key) %>%
-#   mean_hdi() %>% 
-#   mutate_if(is.double, round, digits = 2)
-
 #among
-Va.activity.F.Y.handled <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageYoung:treatmenthandled"^2
-Va.activity.F.Y.injured <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageYoung:treatmentinjured"^2
-Va.activity.F.Y.saline <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageYoung:treatmentsaline"^2
-Va.activity.F.Y.lo <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageYoung:treatmentlow"^2
-Va.activity.F.Y.hi <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageYoung:treatmenthigh"^2
-
-Va.activity.M.Y.handled <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageYoung:treatmenthandled"^2
-Va.activity.M.Y.injured <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageYoung:treatmentinjured"^2
-Va.activity.M.Y.saline <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageYoung:treatmentsaline"^2
-Va.activity.M.Y.lo <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageYoung:treatmentlow"^2
-Va.activity.M.Y.hi <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageYoung:treatmenthigh"^2
-
-Va.activity.F.O.handled <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageOld:treatmenthandled"^2
-Va.activity.F.O.injured <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageOld:treatmentinjured"^2
-Va.activity.F.O.saline <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageOld:treatmentsaline"^2
-Va.activity.F.O.lo <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageOld:treatmentlow"^2
-Va.activity.F.O.hi <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexFemale:ageOld:treatmenthigh"^2
-
-Va.activity.M.O.handled <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageOld:treatmenthandled"^2
-Va.activity.M.O.injured <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageOld:treatmentinjured"^2
-Va.activity.M.O.saline <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageOld:treatmentsaline"^2
-Va.activity.M.O.lo <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageOld:treatmentlow"^2
-Va.activity.M.O.hi <- as_draws_df(fit_model.brms.activity.2)$"sd_id__sexMale:ageOld:treatmenthigh"^2
+Va.mobility.f <- as_draws_df(model.brms.mobility_1)$"sd_ID__sexf"^2
+Va.mobility.m <- as_draws_df(model.brms.mobility_1)$"sd_ID__sexm"^2
 
 #within
-Vw.activity.F.Y.handled <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexFemale:treatmenthandled")^2
-Vw.activity.F.Y.injured <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexFemale:treatmentinjured")^2
-Vw.activity.F.Y.saline <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexFemale:treatmentsaline")^2
-Vw.activity.F.Y.lo <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexFemale:treatmentlow")^2
-Vw.activity.F.Y.hi <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexFemale:treatmenthigh")^2
+Vw.mobility.f <- exp(as_draws_df(model.brms.mobility_1)$"b_sigma_sexf")^2
+Vw.mobility.m <- exp(as_draws_df(model.brms.mobility_1)$"b_sigma_sexm")^2
 
-Vw.activity.M.Y.handled <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexMale:treatmenthandled")^2
-Vw.activity.M.Y.injured <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexMale:treatmentinjured")^2
-Vw.activity.M.Y.saline <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexMale:treatmentsaline")^2
-Vw.activity.M.Y.lo <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexMale:treatmentlow")^2
-Vw.activity.M.Y.hi <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageYoung:sexMale:treatmenthigh")^2
+post.data.all.mobility = data.frame(Va.mobility.f, Va.mobility.m, 
+                                    Vw.mobility.f, Vw.mobility.m) 
 
-Vw.activity.F.O.handled <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexFemale:treatmenthandled")^2
-Vw.activity.F.O.injured <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexFemale:treatmentinjured")^2
-Vw.activity.F.O.saline <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexFemale:treatmentsaline")^2
-Vw.activity.F.O.lo <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexFemale:treatmentlow")^2
-Vw.activity.F.O.hi <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexFemale:treatmenthigh")^2
-
-Vw.activity.M.O.handled <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexMale:treatmenthandled")^2
-Vw.activity.M.O.injured <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexMale:treatmentinjured")^2
-Vw.activity.M.O.saline <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexMale:treatmentsaline")^2
-Vw.activity.M.O.lo <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexMale:treatmentlow")^2
-Vw.activity.M.O.hi <- exp(as_draws_df(fit_model.brms.activity.2)$"b_sigma_ageOld:sexMale:treatmenthigh")^2
-
-
-post.data.all.activity = data.frame(Va.activity.F.Y.handled, Va.activity.F.Y.injured, Va.activity.F.Y.saline, Va.activity.F.Y.lo, Va.activity.F.Y.hi,
-                                    Va.activity.M.Y.handled, Va.activity.M.Y.injured, Va.activity.M.Y.saline, Va.activity.M.Y.lo, Va.activity.M.Y.hi,
-                                    Va.activity.F.O.handled, Va.activity.F.O.injured, Va.activity.F.O.saline, Va.activity.F.O.lo, Va.activity.F.O.hi, 
-                                    Va.activity.M.O.handled, Va.activity.M.O.injured, Va.activity.M.O.saline, Va.activity.M.O.lo, Va.activity.M.O.hi, 
-                                    Vw.activity.F.Y.handled, Vw.activity.F.Y.injured, Vw.activity.F.Y.saline, Vw.activity.F.Y.lo, Vw.activity.F.Y.hi, 
-                                    Vw.activity.M.Y.handled, Vw.activity.M.Y.injured, Vw.activity.M.Y.saline, Vw.activity.M.Y.lo, Vw.activity.M.Y.hi, 
-                                    Vw.activity.F.O.handled, Vw.activity.F.O.injured, Vw.activity.F.O.saline, Vw.activity.F.O.lo, Vw.activity.F.O.hi, 
-                                    Vw.activity.M.Y.handled, Vw.activity.M.Y.injured, Vw.activity.M.Y.saline, Vw.activity.M.O.lo, Vw.activity.M.O.hi) 
-
-all_activity.Va = post.data.all.activity %>%
-  dplyr::select(starts_with("Va.activity.")) %>%
-  pivot_longer(cols = starts_with("Va.activity."),
-               names_to = 'treat',
-               names_prefix = "Va.activity.",
+all_mobility.Va = post.data.all.mobility %>%
+  dplyr::select(starts_with("Va.mobility.")) %>%
+  pivot_longer(cols = starts_with("Va.mobility."),
+               names_to = 'sex',
+               names_prefix = "Va.mobility.",
                values_to ="Estimate")
 
-Va_all_activity = all_activity.Va %>%
-  dplyr::group_by(treat) %>%
-  dplyr::summarise(Va_all_activity = 
+Va_all_mobility = all_mobility.Va %>%
+  dplyr::group_by(sex) %>%
+  dplyr::summarise(Va_all_mobility = 
                      round(mean(Estimate), 3),
                    lowerCI = 
                      round(rethinking::HPDI(Estimate, prob = 0.89)[1], 3),
@@ -622,376 +410,7 @@ all.activity.vw.delta = vw.delta.all.activity %>%
 # mean(var.brms$tau.hi);HPDinterval(as.mcmc(var.brms$tau.hi),0.95)
 # 
 
-#### Bayesian analysis -- EXPLORATION ####
 
-exploreBN<-bestNormalize(merged_data_four$explore)
-merged_data_four$explore.t <- exploreBN$x.t
-
-plot.dist.explore <- merged_data_four %>%
-  dplyr::select(explore,explore.t) %>%
-  gather(treatment, value,explore:explore.t,factor_key=TRUE) %>%
-  mutate(time=if_else(str_detect(treatment, 'explore.t'), 'after', 'before')) %>%
-  mutate(time = factor(time, levels=c("before", "after"))) %>%
-  ggplot(aes(x = value)) +
-  geom_histogram(fill="orange") +
-  facet_wrap(~ time, scales = "free",labeller = labeller(time=time.lab)) +
-  ylab("Count") +
-  xlab("Exploration (Time to visit all zones, s)") +
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
-  theme(axis.title.x = element_text(size=14)) +
-  theme(axis.title.y = element_text(size=14)) +
-  theme(axis.text.x = element_text(size=12)) +
-  theme(axis.text.y = element_text(size=12))
-
-model.brms.explore.1 <- bf(scale(explore.t)~ sex*treatment*age + assay +(0+sex:age||gr(id, by = treatment)), sigma ~ 0+age:sex:treatment, family = gaussian) 
-fit_model.brms.explore.1 <- brm(model.brms.explore.1, data = merged_data_four, iter=4000, thin=2,seed=seed, cores= 4,file = 'data/processed/fit_model.brms.explore.1')
-summary(fit_model.brms.explore.1)
-fit_model.brms.explore.1 <- add_criterion(fit_model.brms.explore.1, "loo", moment_matching=TRUE)
-# fit_model.brms.explore.1 = readRDS(file = "data/processed/fit_model.brms.explore.1.rds")
-
-model.brms.explore.2 <- bf(scale(explore.t)~ sex+treatment+age + assay +(0+sex:age||gr(id, by = treatment)), sigma ~ 0+age:sex:treatment, family = gaussian) 
-fit_model.brms.explore.2 <- brm(model.brms.explore.2, data = merged_data_four, thin=2,iter=4000, seed=seed, cores= 4, file = 'data/processed/fit_model.brms.explore.2')
-summary(fit_model.brms.explore.2)
-fit_model.brms.explore.2 <- add_criterion(fit_model.brms.explore.2, "loo", moment_matching=TRUE)
-
-# fit_model.brms.explore.4 = readRDS(file = "data/processed/fit_model.brms.explore.4.rds")
-
-#head(get_variables(fit_model.brms.explore.4),80)
-
-# convergence and model check
-# pp_check(fit_model.brms.explore.4)
-# check_brms(fit_model.brms.explore.4)
-# mcmc_trace(plot(fit_model.brms.explore.4))
-
-# compare four models
-explore_comp<-loo_compare(fit_model.brms.explore.1, fit_model.brms.explore.2,criterion = "loo") #  model 4 is best
-
-# post <- 
-#   fit_model.brms %>%
-#   as_draws_df()
-# 
-# head(post)
-# 
-# post %>%
-#   transmute(mu_High = b_Intercept,
-#             mu_Low = b_Intercept + b_treatmentLowLPS,
-#             mu_Saline = b_Intercept + b_treatmentSaline,
-#             mu_Injured   = b_Intercept + b_treatmentInjured,
-#             mu_handled = b_Intercept + b_treatmenthandled) %>%
-#   gather() %>%
-#   group_by(key) %>%
-#   mean_hdi() %>% 
-#   mutate_if(is.double, round, digits = 2)
-
-#among
-Va.explore.F.Y.handled <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageYoung:treatmenthandled"^2
-Va.explore.F.Y.injured <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageYoung:treatmentinjured"^2
-Va.explore.F.Y.saline <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageYoung:treatmentsaline"^2
-Va.explore.F.Y.lo <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageYoung:treatmentlow"^2
-Va.explore.F.Y.hi <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageYoung:treatmenthigh"^2
-
-Va.explore.M.Y.handled <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageYoung:treatmenthandled"^2
-Va.explore.M.Y.injured <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageYoung:treatmentinjured"^2
-Va.explore.M.Y.saline <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageYoung:treatmentsaline"^2
-Va.explore.M.Y.lo <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageYoung:treatmentlow"^2
-Va.explore.M.Y.hi <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageYoung:treatmenthigh"^2
-
-Va.explore.F.O.handled <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageOld:treatmenthandled"^2
-Va.explore.F.O.injured <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageOld:treatmentinjured"^2
-Va.explore.F.O.saline <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageOld:treatmentsaline"^2
-Va.explore.F.O.lo <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageOld:treatmentlow"^2
-Va.explore.F.O.hi <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexFemale:ageOld:treatmenthigh"^2
-
-Va.explore.M.O.handled <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageOld:treatmenthandled"^2
-Va.explore.M.O.injured <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageOld:treatmentinjured"^2
-Va.explore.M.O.saline <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageOld:treatmentsaline"^2
-Va.explore.M.O.lo <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageOld:treatmentlow"^2
-Va.explore.M.O.hi <- as_draws_df(fit_model.brms.explore.2)$"sd_id__sexMale:ageOld:treatmenthigh"^2
-
-#within
-Vw.explore.F.Y.handled <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexFemale:treatmenthandled")^2
-Vw.explore.F.Y.injured <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexFemale:treatmentinjured")^2
-Vw.explore.F.Y.saline <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexFemale:treatmentsaline")^2
-Vw.explore.F.Y.lo <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexFemale:treatmentlow")^2
-Vw.explore.F.Y.hi <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexFemale:treatmenthigh")^2
-
-Vw.explore.M.Y.handled <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexMale:treatmenthandled")^2
-Vw.explore.M.Y.injured <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexMale:treatmentinjured")^2
-Vw.explore.M.Y.saline <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexMale:treatmentsaline")^2
-Vw.explore.M.Y.lo <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexMale:treatmentlow")^2
-Vw.explore.M.Y.hi <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageYoung:sexMale:treatmenthigh")^2
-
-Vw.explore.F.O.handled <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexFemale:treatmenthandled")^2
-Vw.explore.F.O.injured <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexFemale:treatmentinjured")^2
-Vw.explore.F.O.saline <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexFemale:treatmentsaline")^2
-Vw.explore.F.O.lo <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexFemale:treatmentlow")^2
-Vw.explore.F.O.hi <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexFemale:treatmenthigh")^2
-
-Vw.explore.M.O.handled <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexMale:treatmenthandled")^2
-Vw.explore.M.O.injured <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexMale:treatmentinjured")^2
-Vw.explore.M.O.saline <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexMale:treatmentsaline")^2
-Vw.explore.M.O.lo <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexMale:treatmentlow")^2
-Vw.explore.M.O.hi <- exp(as_draws_df(fit_model.brms.explore.2)$"b_sigma_ageOld:sexMale:treatmenthigh")^2
-
-
-post.data.all.explore = data.frame(Va.explore.F.Y.handled, Va.explore.F.Y.injured, Va.explore.F.Y.saline, Va.explore.F.Y.lo, Va.explore.F.Y.hi,
-                                    Va.explore.M.Y.handled, Va.explore.M.Y.injured, Va.explore.M.Y.saline, Va.explore.M.Y.lo, Va.explore.M.Y.hi,
-                                    Va.explore.F.O.handled, Va.explore.F.O.injured, Va.explore.F.O.saline, Va.explore.F.O.lo, Va.explore.F.O.hi, 
-                                    Va.explore.M.O.handled, Va.explore.M.O.injured, Va.explore.M.O.saline, Va.explore.M.O.lo, Va.explore.M.O.hi, 
-                                    Vw.explore.F.Y.handled, Vw.explore.F.Y.injured, Vw.explore.F.Y.saline, Vw.explore.F.Y.lo, Vw.explore.F.Y.hi, 
-                                    Vw.explore.M.Y.handled, Vw.explore.M.Y.injured, Vw.explore.M.Y.saline, Vw.explore.M.Y.lo, Vw.explore.M.Y.hi, 
-                                    Vw.explore.F.O.handled, Vw.explore.F.O.injured, Vw.explore.F.O.saline, Vw.explore.F.O.lo, Vw.explore.F.O.hi, 
-                                    Vw.explore.M.Y.handled, Vw.explore.M.Y.injured, Vw.explore.M.Y.saline, Vw.explore.M.O.lo, Vw.explore.M.O.hi) 
-
-all_explore.Va = post.data.all.explore %>%
-  dplyr::select(starts_with("Va.explore.")) %>%
-  pivot_longer(cols = starts_with("Va.explore."),
-               names_to = 'treat',
-               names_prefix = "Va.explore.",
-               values_to ="Estimate")
-
-Va_all_explore = all_explore.Va %>%
-  dplyr::group_by(treat) %>%
-  dplyr::summarise(Va_all_explore = 
-                     round(mean(Estimate), 3),
-                   lowerCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.89)[1], 3),
-                   upperCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.89)[2], 3))%>%
-  as.data.frame()
-
-# Female-Young
-post.data.all.explore$delta.va.explore.F.Y.m_i=
-  with(post.data.all.explore, Va.explore.F.Y.handled-Va.explore.F.Y.injured)
-post.data.all.explore$delta.va.explore.F.Y.m_s=
-  with(post.data.all.explore, Va.explore.F.Y.handled-Va.explore.F.Y.saline)
-post.data.all.explore$delta.va.explore.F.Y.m_l=
-  with(post.data.all.explore, Va.explore.F.Y.handled-Va.explore.F.Y.lo)
-post.data.all.explore$delta.va.explore.F.Y.m_h=
-  with(post.data.all.explore, Va.explore.F.Y.handled-Va.explore.F.Y.hi)
-post.data.all.explore$delta.va.explore.F.Y.i_s=
-  with(post.data.all.explore, Va.explore.F.Y.injured-Va.explore.F.Y.saline)
-post.data.all.explore$delta.va.explore.F.Y.i_l=
-  with(post.data.all.explore, Va.explore.F.Y.injured-Va.explore.F.Y.lo)
-post.data.all.explore$delta.va.explore.F.Y.i_h=
-  with(post.data.all.explore, Va.explore.F.Y.injured-Va.explore.F.Y.hi)
-post.data.all.explore$delta.va.explore.F.Y.s_l=
-  with(post.data.all.explore, Va.explore.F.Y.saline-Va.explore.F.Y.lo)
-post.data.all.explore$delta.va.explore.F.Y.s_h=
-  with(post.data.all.explore, Va.explore.F.Y.saline-Va.explore.F.Y.hi)
-post.data.all.explore$delta.va.explore.F.Y.l_h=
-  with(post.data.all.explore, Va.explore.F.Y.lo-Va.explore.F.Y.hi)
-
-# Male-Young
-post.data.all.explore$delta.va.explore.M.Y.m_i=
-  with(post.data.all.explore, Va.explore.M.Y.handled-Va.explore.M.Y.injured)
-post.data.all.explore$delta.va.explore.M.Y.m_s=
-  with(post.data.all.explore, Va.explore.M.Y.handled-Va.explore.M.Y.saline)
-post.data.all.explore$delta.va.explore.M.Y.m_l=
-  with(post.data.all.explore, Va.explore.M.Y.handled-Va.explore.M.Y.lo)
-post.data.all.explore$delta.va.explore.M.Y.m_h=
-  with(post.data.all.explore, Va.explore.M.Y.handled-Va.explore.M.Y.hi)
-post.data.all.explore$delta.va.explore.M.Y.i_s=
-  with(post.data.all.explore, Va.explore.M.Y.injured-Va.explore.M.Y.saline)
-post.data.all.explore$delta.va.explore.M.Y.i_l=
-  with(post.data.all.explore, Va.explore.M.Y.injured-Va.explore.M.Y.lo)
-post.data.all.explore$delta.va.explore.M.Y.i_h=
-  with(post.data.all.explore, Va.explore.M.Y.injured-Va.explore.M.Y.hi)
-post.data.all.explore$delta.va.explore.M.Y.s_l=
-  with(post.data.all.explore, Va.explore.M.Y.saline-Va.explore.M.Y.lo)
-post.data.all.explore$delta.va.explore.M.Y.s_h=
-  with(post.data.all.explore, Va.explore.M.Y.saline-Va.explore.M.Y.hi)
-post.data.all.explore$delta.va.explore.M.Y.l_h=
-  with(post.data.all.explore, Va.explore.M.Y.lo-Va.explore.M.Y.hi)
-
-# Female-Old
-post.data.all.explore$delta.va.explore.F.O.m_i=
-  with(post.data.all.explore, Va.explore.F.O.handled-Va.explore.F.O.injured)
-post.data.all.explore$delta.va.explore.F.O.m_s=
-  with(post.data.all.explore, Va.explore.F.O.handled-Va.explore.F.O.saline)
-post.data.all.explore$delta.va.explore.F.O.m_l=
-  with(post.data.all.explore, Va.explore.F.O.handled-Va.explore.F.O.lo)
-post.data.all.explore$delta.va.explore.F.O.m_h=
-  with(post.data.all.explore, Va.explore.F.O.handled-Va.explore.F.O.hi)
-post.data.all.explore$delta.va.explore.F.O.i_s=
-  with(post.data.all.explore, Va.explore.F.O.injured-Va.explore.F.O.saline)
-post.data.all.explore$delta.va.explore.F.O.i_l=
-  with(post.data.all.explore, Va.explore.F.O.injured-Va.explore.F.O.lo)
-post.data.all.explore$delta.va.explore.F.O.i_h=
-  with(post.data.all.explore, Va.explore.F.O.injured-Va.explore.F.O.hi)
-post.data.all.explore$delta.va.explore.F.O.s_l=
-  with(post.data.all.explore, Va.explore.F.O.saline-Va.explore.F.O.lo)
-post.data.all.explore$delta.va.explore.F.O.s_h=
-  with(post.data.all.explore, Va.explore.F.O.saline-Va.explore.F.O.hi)
-post.data.all.explore$delta.va.explore.F.O.l_h=
-  with(post.data.all.explore, Va.explore.F.O.lo-Va.explore.F.O.hi)
-
-# Male-Old
-post.data.all.explore$delta.va.explore.M.O.m_i=
-  with(post.data.all.explore, Va.explore.M.O.handled-Va.explore.M.O.injured)
-post.data.all.explore$delta.va.explore.M.O.m_s=
-  with(post.data.all.explore, Va.explore.M.O.handled-Va.explore.M.O.saline)
-post.data.all.explore$delta.va.explore.M.O.m_l=
-  with(post.data.all.explore, Va.explore.M.O.handled-Va.explore.M.O.lo)
-post.data.all.explore$delta.va.explore.M.O.m_h=
-  with(post.data.all.explore, Va.explore.M.O.handled-Va.explore.M.O.hi)
-post.data.all.explore$delta.va.explore.M.O.i_s=
-  with(post.data.all.explore, Va.explore.M.O.injured-Va.explore.M.O.saline)
-post.data.all.explore$delta.va.explore.M.O.i_l=
-  with(post.data.all.explore, Va.explore.M.O.injured-Va.explore.M.O.lo)
-post.data.all.explore$delta.va.explore.M.O.i_h=
-  with(post.data.all.explore, Va.explore.M.O.injured-Va.explore.M.O.hi)
-post.data.all.explore$delta.va.explore.M.O.s_l=
-  with(post.data.all.explore, Va.explore.M.O.saline-Va.explore.M.O.lo)
-post.data.all.explore$delta.va.explore.M.O.s_h=
-  with(post.data.all.explore, Va.explore.M.O.saline-Va.explore.M.O.hi)
-post.data.all.explore$delta.va.explore.M.O.l_h=
-  with(post.data.all.explore, Va.explore.M.O.lo-Va.explore.M.O.hi)
-
-va.delta.all.explore = post.data.all.explore %>%
-  dplyr::select(starts_with("delta.va.explore.")) %>%
-  pivot_longer(cols = starts_with("delta.va.explore."),
-               names_to = 'Contrast',
-               names_prefix = "delta.va.explore.",
-               values_to ="Estimate")
-
-all.explore.va.delta = va.delta.all.explore %>%
-  dplyr::group_by(Contrast)%>%
-  dplyr::summarise(va.delta.all.explore = 
-                     round(mean(Estimate), 3),
-                   lowerCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.89)[1], 3),
-                   upperCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.89)[2], 3)) %>%
-  as.data.frame()
-
-# within-individual
-all_explore.Vw = post.data.all.explore %>%
-  dplyr::select(starts_with("Vw.explore.")) %>%
-  pivot_longer(cols = starts_with("Vw.explore."),
-               names_to = 'treat',
-               names_prefix = "Vw.explore.",
-               values_to ="Estimate")
-
-Vw_all_explore = all_explore.Vw %>%
-  dplyr::group_by(treat)%>%
-  dplyr::summarise(Vw_all_explore = 
-                     round(mean(Estimate), 3),
-                   lowerCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.95)[1], 3),
-                   upperCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.95)[2], 3))%>%
-  as.data.frame()
-
-# Female-Young
-post.data.all.explore$delta.vw.explore.F.Y.m_i=
-  with(post.data.all.explore, Vw.explore.F.Y.handled-Vw.explore.F.Y.injured)
-post.data.all.explore$delta.vw.explore.F.Y.m_s=
-  with(post.data.all.explore, Vw.explore.F.Y.handled-Vw.explore.F.Y.saline)
-post.data.all.explore$delta.vw.explore.F.Y.m_l=
-  with(post.data.all.explore, Vw.explore.F.Y.handled-Vw.explore.F.Y.lo)
-post.data.all.explore$delta.vw.explore.F.Y.m_h=
-  with(post.data.all.explore, Vw.explore.F.Y.handled-Vw.explore.F.Y.hi)
-post.data.all.explore$delta.vw.explore.F.Y.i_s=
-  with(post.data.all.explore, Vw.explore.F.Y.injured-Vw.explore.F.Y.saline)
-post.data.all.explore$delta.vw.explore.F.Y.i_l=
-  with(post.data.all.explore, Vw.explore.F.Y.injured-Vw.explore.F.Y.lo)
-post.data.all.explore$delta.vw.explore.F.Y.i_h=
-  with(post.data.all.explore, Vw.explore.F.Y.injured-Vw.explore.F.Y.hi)
-post.data.all.explore$delta.vw.explore.F.Y.s_l=
-  with(post.data.all.explore, Vw.explore.F.Y.saline-Vw.explore.F.Y.lo)
-post.data.all.explore$delta.vw.explore.F.Y.s_h=
-  with(post.data.all.explore, Vw.explore.F.Y.saline-Vw.explore.F.Y.hi)
-post.data.all.explore$delta.vw.explore.F.Y.l_h=
-  with(post.data.all.explore, Vw.explore.F.Y.lo-Vw.explore.F.Y.hi)
-
-# Male-Young
-post.data.all.explore$delta.vw.explore.M.Y.m_i=
-  with(post.data.all.explore, Vw.explore.M.Y.handled-Vw.explore.M.Y.injured)
-post.data.all.explore$delta.vw.explore.M.Y.m_s=
-  with(post.data.all.explore, Vw.explore.M.Y.handled-Vw.explore.M.Y.saline)
-post.data.all.explore$delta.vw.explore.M.Y.m_l=
-  with(post.data.all.explore, Vw.explore.M.Y.handled-Vw.explore.M.Y.lo)
-post.data.all.explore$delta.vw.explore.M.Y.m_h=
-  with(post.data.all.explore, Vw.explore.M.Y.handled-Vw.explore.M.Y.hi)
-post.data.all.explore$delta.vw.explore.M.Y.i_s=
-  with(post.data.all.explore, Vw.explore.M.Y.injured-Vw.explore.M.Y.saline)
-post.data.all.explore$delta.vw.explore.M.Y.i_l=
-  with(post.data.all.explore, Vw.explore.M.Y.injured-Vw.explore.M.Y.lo)
-post.data.all.explore$delta.vw.explore.M.Y.i_h=
-  with(post.data.all.explore, Vw.explore.M.Y.injured-Vw.explore.M.Y.hi)
-post.data.all.explore$delta.vw.explore.M.Y.s_l=
-  with(post.data.all.explore, Vw.explore.M.Y.saline-Vw.explore.M.Y.lo)
-post.data.all.explore$delta.vw.explore.M.Y.s_h=
-  with(post.data.all.explore, Vw.explore.M.Y.saline-Vw.explore.M.Y.hi)
-post.data.all.explore$delta.vw.explore.M.Y.l_h=
-  with(post.data.all.explore, Vw.explore.M.Y.lo-Vw.explore.M.Y.hi)
-
-# Female-Old
-post.data.all.explore$delta.vw.explore.F.O.m_i=
-  with(post.data.all.explore, Vw.explore.F.O.handled-Vw.explore.F.O.injured)
-post.data.all.explore$delta.vw.explore.F.O.m_s=
-  with(post.data.all.explore, Vw.explore.F.O.handled-Vw.explore.F.O.saline)
-post.data.all.explore$delta.vw.explore.F.O.m_l=
-  with(post.data.all.explore, Vw.explore.F.O.handled-Vw.explore.F.O.lo)
-post.data.all.explore$delta.vw.explore.F.O.m_h=
-  with(post.data.all.explore, Vw.explore.F.O.handled-Vw.explore.F.O.hi)
-post.data.all.explore$delta.vw.explore.F.O.i_s=
-  with(post.data.all.explore, Vw.explore.F.O.injured-Vw.explore.F.O.saline)
-post.data.all.explore$delta.vw.explore.F.O.i_l=
-  with(post.data.all.explore, Vw.explore.F.O.injured-Vw.explore.F.O.lo)
-post.data.all.explore$delta.vw.explore.F.O.i_h=
-  with(post.data.all.explore, Vw.explore.F.O.injured-Vw.explore.F.O.hi)
-post.data.all.explore$delta.vw.explore.F.O.s_l=
-  with(post.data.all.explore, Vw.explore.F.O.saline-Vw.explore.F.O.lo)
-post.data.all.explore$delta.vw.explore.F.O.s_h=
-  with(post.data.all.explore, Vw.explore.F.O.saline-Vw.explore.F.O.hi)
-post.data.all.explore$delta.vw.explore.F.O.l_h=
-  with(post.data.all.explore, Vw.explore.F.O.lo-Vw.explore.F.O.hi)
-
-# Male-Old
-post.data.all.explore$delta.vw.explore.M.O.m_i=
-  with(post.data.all.explore, Vw.explore.M.O.handled-Vw.explore.M.O.injured)
-post.data.all.explore$delta.vw.explore.M.O.m_s=
-  with(post.data.all.explore, Vw.explore.M.O.handled-Vw.explore.M.O.saline)
-post.data.all.explore$delta.vw.explore.M.O.m_l=
-  with(post.data.all.explore, Vw.explore.M.O.handled-Vw.explore.M.O.lo)
-post.data.all.explore$delta.vw.explore.M.O.m_h=
-  with(post.data.all.explore, Vw.explore.M.O.handled-Vw.explore.M.O.hi)
-post.data.all.explore$delta.vw.explore.M.O.i_s=
-  with(post.data.all.explore, Vw.explore.M.O.injured-Vw.explore.M.O.saline)
-post.data.all.explore$delta.vw.explore.M.O.i_l=
-  with(post.data.all.explore, Vw.explore.M.O.injured-Vw.explore.M.O.lo)
-post.data.all.explore$delta.vw.explore.M.O.i_h=
-  with(post.data.all.explore, Vw.explore.M.O.injured-Vw.explore.M.O.hi)
-post.data.all.explore$delta.vw.explore.M.O.s_l=
-  with(post.data.all.explore, Vw.explore.M.O.saline-Vw.explore.M.O.lo)
-post.data.all.explore$delta.vw.explore.M.O.s_h=
-  with(post.data.all.explore, Vw.explore.M.O.saline-Vw.explore.M.O.hi)
-post.data.all.explore$delta.vw.explore.M.O.l_h=
-  with(post.data.all.explore, Vw.explore.M.O.lo-Vw.explore.M.O.hi)
-
-vw.delta.all.explore = post.data.all.explore %>%
-  dplyr::select(starts_with("delta.vw.explore.")) %>%
-  pivot_longer(cols = starts_with("delta.vw.explore."),
-               names_to = 'Contrast',
-               names_prefix = "delta.vw.explore.",
-               values_to ="Estimate")
-
-
-all.explore.vw.delta = vw.delta.all.explore %>%
-  dplyr::group_by(Contrast)%>%
-  dplyr::summarise(vw.delta.all.explore = 
-                     round(mean(Estimate), 3),
-                   lowerCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.95)[1], 3),
-                   upperCI = 
-                     round(rethinking::HPDI(Estimate, prob = 0.95)[2], 3)) %>%
-  as.data.frame()
-
-
-## ---- end
 
 
 # model comparison table
