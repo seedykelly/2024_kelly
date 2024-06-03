@@ -1,4 +1,4 @@
-#rm(list=ls())
+rm(list=ls())
 # if git is ahead by X commits do this: git reset --soft HEAD~8 (8=# of commits)
 
 ## ---- libraries ----
@@ -63,9 +63,6 @@ check_brms <- function(model,             # brms model
 mobility_data<- read.csv(file="data/raw/giant_weta_behaviour.csv", header=TRUE, sep=",", dec=".")
 morphological_data<- read.csv(file="data/raw/morphology_giant_weta.csv", header=TRUE, sep=",", dec=".")
 
-
-
-
 ## brms model results for rmarkdown. All analyses for these models are conducted below. 
 fit_model.brms.activity.1 = readRDS(file = "data/processed/fit_model.brms.activity.1.rds")
 fit_model.brms.activity.2 = readRDS(file = "data/processed/fit_model.brms.activity.2.rds")
@@ -81,6 +78,9 @@ activity_comp<-loo_compare(fit_model.brms.activity.1, fit_model.brms.activity.2,
 
 seed=123456
 set.seed(seed)
+
+distanceBN<-bestNormalize(mobility_data$distance)
+mobility_data$distance.t <- distanceBN$x.t
 
 plot.dist.distance <- merged_data_four %>%
   dplyr::select(distance,distance.t) %>%
@@ -102,17 +102,54 @@ plot.dist.distance <- merged_data_four %>%
 # model.brms=bf(distance.t ~ sex*treatment + (0+treatment||id) + (0+sex||id), sigma ~ 0+treatment, sigma ~ 0+sex) #Royaute-Dochterman
 # model.brms=bf(distance.t ~ sex*treatment + (1|id))
 
-model.brms.mobility <- bf(scale(distance) ~ sex + (0+sex||gr(ID)), sigma ~ 0+sex, family = gaussian) 
-model.brms.mobility_1 <- brm(model.brms.mobility, data = mobility_data, save_pars = save_pars(all = TRUE), 
-                             warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4, file = 'data/processed/model.brms.mobility_1')
-summary(model.brms.mobility_1)
+model.brms.mobility <- bf(log(distance+1) ~ sex + (0+sex||ID), sigma ~ 0+sex, family = gaussian) 
 
-get_variables(model.brms.mobility_1)
+double_model_cor = bf(distance ~ sex + (sex|a|ID), sigma ~ (1|a|ID))
+
+double_model = bf(distance ~ sex + (sex|ID), sigma ~ (1|ID))
+
+hlme.mobility <- bf(log(distance+1) ~ sex + sex*observation + (observation|ID), sigma ~ sex, family = gaussian)
+
+fit.model.brms.mobility <- brm(hlme.mobility, data = mobility_data, save_pars = save_pars(all = TRUE), 
+                             warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+summary(fit.model.brms.mobility)
+
+# residual = sigma
+# random effects = sd
+#file = 'data/processed/model.brms.mobility_1'
+
+get_variables(fit.model.brms.mobility)
 
 # convergence and model check
-# pp_check(fit_model.brms.activity.4)
-# check_brms(fit_model.brms.activity.4)
-# mcmc_trace(plot(fit_model.brms.activity.4))
+# pp_check(model.brms.mobility_1)
+# check_brms(model.brms.mobility_1)
+# mcmc_trace(plot(model.brms.mobility_1))
+
+mobility_female <-  exp(as_draws_df(fit.model.brms.mobility)$"b_sigma_Intercept")^2
+mobility_male <-  exp((as_draws_df(fit.model.brms.mobility)$"b_sigma_Intercept") + (as_draws_df(fit.model.brms.mobility)$"b_sigma_sexm"))^2
+
+posterior_data_mobility = data.frame(mobility_female, mobility_male)
+
+mobility.residual = posterior_data_mobility %>%
+  dplyr::select(starts_with("mobility_")) %>%
+  pivot_longer(cols = starts_with("mobility_"),
+               names_to = 'Sex',
+               names_prefix = "mobility_",
+               values_to ="Estimate")
+
+require(plyr)
+mobility.mean <- ddply(mobility.residual, "Sex", summarise, grp.mean=mean(Estimate))
+
+ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
+  geom_density(alpha=0.6)+ 
+  geom_vline(data = mobility.mean, aes(xintercept=grp.mean, color = Sex),
+             linetype="dashed", linewidth=1) +
+  xlab('Residual within-individual variaiton in mobility\n (i.e. predictability)') +
+  ylab('Density') +
+  theme_bw()
+
+# males less predictable than females
+# correlate rIIV with mating success = less predictable males have higher mating success
 
 #among
 Va.mobility.f <- as_draws_df(model.brms.mobility_1)$"sd_ID__sexf"^2
@@ -142,110 +179,28 @@ Va_all_mobility = all_mobility.Va %>%
                      round(rethinking::HPDI(Estimate, prob = 0.89)[2], 3))%>%
   as.data.frame()
 
-# Female-Young
-post.data.all.activity$delta.va.activity.F.Y.m_i=
-  with(post.data.all.activity, Va.activity.F.Y.handled-Va.activity.F.Y.injured)
-post.data.all.activity$delta.va.activity.F.Y.m_s=
-  with(post.data.all.activity, Va.activity.F.Y.handled-Va.activity.F.Y.saline)
-post.data.all.activity$delta.va.activity.F.Y.m_l=
-  with(post.data.all.activity, Va.activity.F.Y.handled-Va.activity.F.Y.lo)
-post.data.all.activity$delta.va.activity.F.Y.m_h=
-  with(post.data.all.activity, Va.activity.F.Y.handled-Va.activity.F.Y.hi)
-post.data.all.activity$delta.va.activity.F.Y.i_s=
-  with(post.data.all.activity, Va.activity.F.Y.injured-Va.activity.F.Y.saline)
-post.data.all.activity$delta.va.activity.F.Y.i_l=
-  with(post.data.all.activity, Va.activity.F.Y.injured-Va.activity.F.Y.lo)
-post.data.all.activity$delta.va.activity.F.Y.i_h=
-  with(post.data.all.activity, Va.activity.F.Y.injured-Va.activity.F.Y.hi)
-post.data.all.activity$delta.va.activity.F.Y.s_l=
-  with(post.data.all.activity, Va.activity.F.Y.saline-Va.activity.F.Y.lo)
-post.data.all.activity$delta.va.activity.F.Y.s_h=
-  with(post.data.all.activity, Va.activity.F.Y.saline-Va.activity.F.Y.hi)
-post.data.all.activity$delta.va.activity.F.Y.l_h=
-  with(post.data.all.activity, Va.activity.F.Y.lo-Va.activity.F.Y.hi)
+# female-male difference
+post.data.all.mobility$delta.va.mobility.m.f=
+  with(post.data.all.mobility, Va.mobility.m-Va.mobility.f)
 
-# Male-Young
-post.data.all.activity$delta.va.activity.M.Y.m_i=
-  with(post.data.all.activity, Va.activity.M.Y.handled-Va.activity.M.Y.injured)
-post.data.all.activity$delta.va.activity.M.Y.m_s=
-  with(post.data.all.activity, Va.activity.M.Y.handled-Va.activity.M.Y.saline)
-post.data.all.activity$delta.va.activity.M.Y.m_l=
-  with(post.data.all.activity, Va.activity.M.Y.handled-Va.activity.M.Y.lo)
-post.data.all.activity$delta.va.activity.M.Y.m_h=
-  with(post.data.all.activity, Va.activity.M.Y.handled-Va.activity.M.Y.hi)
-post.data.all.activity$delta.va.activity.M.Y.i_s=
-  with(post.data.all.activity, Va.activity.M.Y.injured-Va.activity.M.Y.saline)
-post.data.all.activity$delta.va.activity.M.Y.i_l=
-  with(post.data.all.activity, Va.activity.M.Y.injured-Va.activity.M.Y.lo)
-post.data.all.activity$delta.va.activity.M.Y.i_h=
-  with(post.data.all.activity, Va.activity.M.Y.injured-Va.activity.M.Y.hi)
-post.data.all.activity$delta.va.activity.M.Y.s_l=
-  with(post.data.all.activity, Va.activity.M.Y.saline-Va.activity.M.Y.lo)
-post.data.all.activity$delta.va.activity.M.Y.s_h=
-  with(post.data.all.activity, Va.activity.M.Y.saline-Va.activity.M.Y.hi)
-post.data.all.activity$delta.va.activity.M.Y.l_h=
-  with(post.data.all.activity, Va.activity.M.Y.lo-Va.activity.M.Y.hi)
-
-# Female-Old
-post.data.all.activity$delta.va.activity.F.O.m_i=
-  with(post.data.all.activity, Va.activity.F.O.handled-Va.activity.F.O.injured)
-post.data.all.activity$delta.va.activity.F.O.m_s=
-  with(post.data.all.activity, Va.activity.F.O.handled-Va.activity.F.O.saline)
-post.data.all.activity$delta.va.activity.F.O.m_l=
-  with(post.data.all.activity, Va.activity.F.O.handled-Va.activity.F.O.lo)
-post.data.all.activity$delta.va.activity.F.O.m_h=
-  with(post.data.all.activity, Va.activity.F.O.handled-Va.activity.F.O.hi)
-post.data.all.activity$delta.va.activity.F.O.i_s=
-  with(post.data.all.activity, Va.activity.F.O.injured-Va.activity.F.O.saline)
-post.data.all.activity$delta.va.activity.F.O.i_l=
-  with(post.data.all.activity, Va.activity.F.O.injured-Va.activity.F.O.lo)
-post.data.all.activity$delta.va.activity.F.O.i_h=
-  with(post.data.all.activity, Va.activity.F.O.injured-Va.activity.F.O.hi)
-post.data.all.activity$delta.va.activity.F.O.s_l=
-  with(post.data.all.activity, Va.activity.F.O.saline-Va.activity.F.O.lo)
-post.data.all.activity$delta.va.activity.F.O.s_h=
-  with(post.data.all.activity, Va.activity.F.O.saline-Va.activity.F.O.hi)
-post.data.all.activity$delta.va.activity.F.O.l_h=
-  with(post.data.all.activity, Va.activity.F.O.lo-Va.activity.F.O.hi)
-
-# Male-Old
-post.data.all.activity$delta.va.activity.M.O.m_i=
-  with(post.data.all.activity, Va.activity.M.O.handled-Va.activity.M.O.injured)
-post.data.all.activity$delta.va.activity.M.O.m_s=
-  with(post.data.all.activity, Va.activity.M.O.handled-Va.activity.M.O.saline)
-post.data.all.activity$delta.va.activity.M.O.m_l=
-  with(post.data.all.activity, Va.activity.M.O.handled-Va.activity.M.O.lo)
-post.data.all.activity$delta.va.activity.M.O.m_h=
-  with(post.data.all.activity, Va.activity.M.O.handled-Va.activity.M.O.hi)
-post.data.all.activity$delta.va.activity.M.O.i_s=
-  with(post.data.all.activity, Va.activity.M.O.injured-Va.activity.M.O.saline)
-post.data.all.activity$delta.va.activity.M.O.i_l=
-  with(post.data.all.activity, Va.activity.M.O.injured-Va.activity.M.O.lo)
-post.data.all.activity$delta.va.activity.M.O.i_h=
-  with(post.data.all.activity, Va.activity.M.O.injured-Va.activity.M.O.hi)
-post.data.all.activity$delta.va.activity.M.O.s_l=
-  with(post.data.all.activity, Va.activity.M.O.saline-Va.activity.M.O.lo)
-post.data.all.activity$delta.va.activity.M.O.s_h=
-  with(post.data.all.activity, Va.activity.M.O.saline-Va.activity.M.O.hi)
-post.data.all.activity$delta.va.activity.M.O.l_h=
-  with(post.data.all.activity, Va.activity.M.O.lo-Va.activity.M.O.hi)
-
-va.delta.all.activity = post.data.all.activity %>%
-  dplyr::select(starts_with("delta.va.activity.")) %>%
-  pivot_longer(cols = starts_with("delta.va.activity."),
+va.delta.all.mobility = post.data.all.mobility %>%
+  dplyr::select(starts_with("delta.va.mobility.")) %>%
+  pivot_longer(cols = starts_with("delta.va.mobility."),
                names_to = 'Contrast',
-               names_prefix = "delta.va.activity.",
+               names_prefix = "delta.va.mobility.",
                values_to ="Estimate")
 
-all.activity.va.delta = va.delta.all.activity %>%
+all.mobility.va.delta = va.delta.all.mobility %>%
   dplyr::group_by(Contrast)%>%
-  dplyr::summarise(va.delta.all.activity = 
+  dplyr::summarise(va.delta.all.mobility = 
                      round(mean(Estimate), 3),
                    lowerCI = 
                      round(rethinking::HPDI(Estimate, prob = 0.89)[1], 3),
                    upperCI = 
                      round(rethinking::HPDI(Estimate, prob = 0.89)[2], 3)) %>%
   as.data.frame()
+
+###END
 
 # within-individual
 all_activity.Vw = post.data.all.activity %>%
