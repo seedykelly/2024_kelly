@@ -102,11 +102,11 @@ plot.dist.distance <- merged_data_four %>%
 # model.brms=bf(distance.t ~ sex*treatment + (0+treatment||id) + (0+sex||id), sigma ~ 0+treatment, sigma ~ 0+sex) #Royaute-Dochterman
 # model.brms=bf(distance.t ~ sex*treatment + (1|id))
 
-model.brms.mobility <- bf(log(distance+1) ~ sex + (0+sex||ID), sigma ~ 0+sex, family = gaussian) 
+#model.brms.mobility <- bf(log(distance+1) ~ sex + (0+sex||ID), sigma ~ 0+sex, family = gaussian) 
 
-double_model_cor = bf(distance ~ sex + (sex|a|ID), sigma ~ (1|a|ID))
+#double_model_cor = bf(distance ~ sex + (sex|a|ID), sigma ~ (1|a|ID))
 
-double_model = bf(distance ~ sex + (sex|ID), sigma ~ (1|ID))
+#double_model = bf(distance ~ sex + (sex|ID), sigma ~ (1|ID))
 
 hlme.mobility <- bf(log(distance+1) ~ sex + sex*observation + (observation|ID), sigma ~ sex, family = gaussian)
 
@@ -137,6 +137,29 @@ mobility.residual = posterior_data_mobility %>%
                names_prefix = "mobility_",
                values_to ="Estimate")
 
+12:44
+
+ran <- as.data.frame(ranef(fit.model.brms.mobility, summary = FALSE)[["ID"]]) %>%
+  dplyr::select(ends_with(".Intercept")) %>%
+  pivot_longer(cols = ends_with(".Intercept"),
+               names_to = 'ID',
+               names_prefix = "W",
+               values_to ="Estimate") %>%
+  group_by(ID) %>%
+  summarise(mean=mean(Estimate))
+
+
+str(ran)
+sigma <- apply(ran, 1, sd)
+str(sigma)
+
+posteriorIIV <- as_draws_df(fit.model.brms.mobility)[,12:44] %>%
+  gather(ID, value, "r_ID[W01,Intercept]" : "r_ID[W79,Intercept]") %>%
+  separate(ID, c(NA,NA,NA,NA,NA,"r_ID",NA), sep = "([\\__\\[\\,])", fill = "right") %>% 
+  dplyr::left_join(dplyr::select(data, ID, Sex))
+
+as_draws_df(fit.model.brms.mobility)
+
 require(plyr)
 mobility.mean <- ddply(mobility.residual, "Sex", summarise, grp.mean=mean(Estimate))
 
@@ -150,6 +173,23 @@ ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
 
 # males less predictable than females
 # correlate rIIV with mating success = less predictable males have higher mating success
+
+
+
+# mating success
+
+mating_data <- mobility_data %>%
+  mutate(ms = ifelse(partner_id== "", 0,1)) %>%
+  filter(sex=="m")
+
+hlme.mating <- bf(log(distance+1) ~ ms + (1|ID), family = gaussian)
+
+fit.model.brms.mating <- brm(hlme.mating, data = mating_data, save_pars = save_pars(all = TRUE), 
+                               warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+summary(fit.model.brms.mating)
+
+
+
 
 #among
 Va.mobility.f <- as_draws_df(model.brms.mobility_1)$"sd_ID__sexf"^2
