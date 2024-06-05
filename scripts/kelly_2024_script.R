@@ -182,7 +182,7 @@ mating_data <- mobility_data %>%
   mutate(ms = ifelse(partner_id== "", 0,1)) %>%
   filter(sex=="m")
 
-hlme.mating <- bf(log(distance+1) ~ ms + (1|ID), family = gaussian)
+hlme.mating <- bf(log(distance+1) ~ ms * sex + (1|ID), family = gaussian)
 
 fit.model.brms.mating <- brm(hlme.mating, data = mating_data, save_pars = save_pars(all = TRUE), 
                                warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
