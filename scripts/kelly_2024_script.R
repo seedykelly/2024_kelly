@@ -189,6 +189,11 @@ fit.model.brms.mating <- brm(hlme.mating, data = mating_data, save_pars = save_p
 summary(fit.model.brms.mating)
 
 
+hlme.mobility <- bf(log(distance+1) ~ sex + ms + sex*observation + (observation|ID), sigma ~ sex, family = gaussian)
+
+fit.model.brms.mobility <- brm(hlme.mobility, data = mating_data, save_pars = save_pars(all = TRUE), 
+                               warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+summary(fit.model.brms.mobility)
 
 
 #among
