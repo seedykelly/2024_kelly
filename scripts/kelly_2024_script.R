@@ -29,7 +29,7 @@ library(officer)
 library(kableExtra)
 library(knitr)
 library(officedown)
-library(gtsummary)
+library(smatr)
 library(ggh4x)
 ## ---- end
 
@@ -62,7 +62,47 @@ check_brms <- function(model,             # brms model
 ## ---- data_analysis ----
 mobility_data<- read.csv(file="data/raw/giant_weta_behaviour.csv", header=TRUE, sep=",", dec=".")
 morphological_data<- read.csv(file="data/raw/morphology_giant_weta.csv", header=TRUE, sep=",", dec=".")
+condition_data<-read_csv(file="data/raw/giant_weta_composite_data.csv") #these are measures from general weta population, not individuals in the current study
 
+# calculate condition (SMI)
+mean_pronotum <- condition_data %>%
+  group_by(sex) %>%
+  summarise(mean_pro=mean(pronotum)) #population average pronotum length
+#mean_pronotum[1,2]
+
+allom_slope<-sma(mass~pronotum*sex, log="xy", method="SMA", data=condition_data)
+summary(allom_slope)
+coef(allom_slope)[2]
+
+# # allometry of tibia
+# allom_slope<-sma(Tibia~Pronotum*Sex, log="xy", method="SMA", data=morphology.Giant.weta)
+# summary(allom_slope)
+
+#calculate scaled mass index for each weta in this study and then add residual tibia length
+morphology_long<-morphological_data %>%
+  dplyr::select(ID, Pronotum, Tibia) %>%
+  inner_join(mobility_data, by="ID") %>%
+  mutate(smi = ifelse(sex == "f", mass*(12.6/Pronotum)^3.532828, mass*(10.9/Pronotum)^2.858071)) # SMI for each sex separately
+
+# Subtracting 1 from observation number, so that intercept variance represents variation at the first trial (i.e. 0).
+morphology_long$observation.n <- (morphology_long$observation - 1)
+
+# Creating a mean-centered sex and time of day variable
+morphology_long$sex.centred <- ifelse(morphology_long$sex == 'f', -0.5,
+                                   ifelse(morphology_long$sex == 'm', 0.5, NA))
+
+# Transform response variable
+
+morphology_long$distance.t <- log(distance+1)
+
+# Scale response variable
+morphology_long$distance.z <- scale(as.numeric(morphology_long$distance.t))
+morphology_long$smi.z <- scale(as.numeric(morphology_long$smi))
+
+# Add mating success
+morphology_long$ms <-ifelse(morphology_long$partner_id== "", 0,1)
+
+  
 ## brms model results for rmarkdown. All analyses for these models are conducted below. 
 fit_model.brms.activity.1 = readRDS(file = "data/processed/fit_model.brms.activity.1.rds")
 fit_model.brms.activity.2 = readRDS(file = "data/processed/fit_model.brms.activity.2.rds")
@@ -76,49 +116,57 @@ activity_comp<-loo_compare(fit_model.brms.activity.1, fit_model.brms.activity.2,
 
 #### Bayesian analysis ####
 
-seed=123456
-set.seed(seed)
-
-distanceBN<-bestNormalize(mobility_data$distance)
-mobility_data$distance.t <- distanceBN$x.t
-
-plot.dist.distance <- merged_data_four %>%
-  dplyr::select(distance,distance.t) %>%
-  gather(treatment, value,distance:distance.t,factor_key=TRUE) %>%
-  mutate(time=if_else(str_detect(treatment, 'distance.t'), 'after', 'before')) %>%
-  mutate(time = factor(time, levels=c("before", "after"))) %>%
-  ggplot(aes(x = value)) +
-  geom_histogram(fill="lightblue") +
-  facet_wrap(~ time, scales = "free",labeller = labeller(time=time.lab)) +
-  ylab("Count") +
-  xlab("Activity (Distance travelled cm)") +
-  theme_bw() +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
-  theme(axis.title.x = element_text(size=14)) +
-  theme(axis.title.y = element_text(size=14)) +
-  theme(axis.text.x = element_text(size=12)) +
-  theme(axis.text.y = element_text(size=12))
-
-# model.brms=bf(distance.t ~ sex*treatment + (0+treatment||id) + (0+sex||id), sigma ~ 0+treatment, sigma ~ 0+sex) #Royaute-Dochterman
-# model.brms=bf(distance.t ~ sex*treatment + (1|id))
-
 #model.brms.mobility <- bf(log(distance+1) ~ sex + (0+sex||ID), sigma ~ 0+sex, family = gaussian) 
 
 #double_model_cor = bf(distance ~ sex + (sex|a|ID), sigma ~ (1|a|ID))
 
 #double_model = bf(distance ~ sex + (sex|ID), sigma ~ (1|ID))
 
-hlme.mobility <- bf(log(distance+1) ~ sex + sex*observation + (observation|ID), sigma ~ sex, family = gaussian)
+mobility_rep <- bf(distance.z ~ sex.centred + sex.centred*observation.n + (observation.n|ID), family = gaussian)
 
-fit.model.brms.mobility <- brm(hlme.mobility, data = mobility_data, save_pars = save_pars(all = TRUE), 
-                             warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
-summary(fit.model.brms.mobility)
+fit.model.brms.mobility <- brm(mobility_rep, data = morphology_long, save_pars = save_pars(all = TRUE), 
+                             warmup=100, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+summary(fit.model.brms.mobility,prob = 0.89)
+
+# males travel farther than females as shown elsewhere
+# suggests behavioural plasticity i.e. sd(observation.n)
+
+# Extracting relevant variance estimates from model
+get_variables(fit.model.brms.mobility)[1:100]
+post.data.mobility = fit.model.brms.mobility %>% spread_draws(sd_ID__Intercept,
+                                                      sigma, 
+                                                      cor_ID__Intercept__observation.n, 
+                                                      sd_ID__observation.n) 
+
+#Note: need to calculate intercept/slope covariance
+#Covariance is calculated as the correlation between x and y multiplied by the square root of the variance of both x and y
+
+# Mobility -- repeatability at the intercept (i.e. observation.n = 0)
+mobility.repeat = post.data.mobility %>% 
+    dplyr::mutate(Va = sd_ID__Intercept^2,
+                  Vw = sigma^2,
+                  Va_slope = sd_ID__observation.n^2,
+                  COV_IS_mobility = cor_ID__Intercept__observation.n * sqrt(Va) * sqrt(Va_slope),
+                  R = (Va + (2*COV_IS_mobility*0)+(Va_slope*(0^2)))/(Va + (2*COV_IS_mobility*0)+(Va_slope*(0^2)) + Vw)) %>%
+    dplyr::summarise(Va = mean(Va),
+                     Vw = mean(Vw),
+                     R_cond = mean(R),
+                     lower_R = rethinking::HPDI(R, prob = 0.95)[1],
+                     upper_R = rethinking::HPDI(R, prob = 0.95)[2])
+
+# mobility is repeatable 
+
+
+
+
+
+
+
+
 
 # residual = sigma
 # random effects = sd
 #file = 'data/processed/model.brms.mobility_1'
-
-get_variables(fit.model.brms.mobility)
 
 # convergence and model check
 # pp_check(model.brms.mobility_1)
@@ -176,25 +224,13 @@ ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
 
 
 
-# mating success
+# predictability
 
-mating_data <- mobility_data %>%
-  mutate(ms = ifelse(partner_id== "", 0,1)) %>%
-  filter(sex=="m")
+mobility_pred <- bf(distance.z~ sex.centred + sex.centred*observation.n + (observation.n|ID), sigma ~ sex, family = gaussian)
 
-hlme.mating <- bf(log(distance+1) ~ ms * sex + (1|ID), family = gaussian)
-
-fit.model.brms.mating <- brm(hlme.mating, data = mating_data, save_pars = save_pars(all = TRUE), 
-                               warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
-summary(fit.model.brms.mating)
-
-
-hlme.mobility <- bf(log(distance+1) ~ sex + ms + sex*observation + (observation|ID), sigma ~ sex, family = gaussian)
-
-fit.model.brms.mobility <- brm(hlme.mobility, data = mating_data, save_pars = save_pars(all = TRUE), 
-                               warmup=500, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
-summary(fit.model.brms.mobility)
-
+fit.model.brms.pred <- brm(mobility_pred, data = morphology_long, save_pars = save_pars(all = TRUE), 
+                               warmup=1000, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+summary(fit.model.brms.pred,prob = 0.89)
 
 #among
 Va.mobility.f <- as_draws_df(model.brms.mobility_1)$"sd_ID__sexf"^2
