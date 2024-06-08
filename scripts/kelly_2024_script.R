@@ -105,16 +105,11 @@ morphology_long$ms <-ifelse(morphology_long$partner_id== "", 0,1)
   
 ## brms model results for rmarkdown. All analyses for these models are conducted below. 
 fit_model.brms.activity.1 = readRDS(file = "data/processed/fit_model.brms.activity.1.rds")
-fit_model.brms.activity.2 = readRDS(file = "data/processed/fit_model.brms.activity.2.rds")
 
-activity_comp<-loo_compare(fit_model.brms.activity.1, fit_model.brms.activity.2, criterion = "loo") #  model 2 is best
 
-# load(file = "data/processed/contrasts.table.Va.RData")
-# load(file = "data/processed/contrasts.table.Vw.RData")
-# correlation.table <- readRDS(file = "data/processed/correlation.table.rda")
 ## ---- end
 
-#### Bayesian analysis ####
+#### REPEATABILITY ####
 
 #model.brms.mobility <- bf(log(distance+1) ~ sex + (0+sex||ID), sigma ~ 0+sex, family = gaussian) 
 
@@ -157,24 +152,18 @@ mobility.repeat = post.data.mobility %>%
 # mobility is repeatable 
 
 
+#### PREDICTABILITY ####
 
+mobility_pred <- bf(distance.z~ sex.centred + sex.centred*observation.n + (observation.n|ID), sigma ~ sex, family = gaussian)
 
+fit.model.brms.pred <- brm(mobility_pred, data = morphology_long, save_pars = save_pars(all = TRUE), 
+                               warmup=1000, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+summary(fit.model.brms.pred, prob = 0.95)
 
+#plot
 
-
-
-
-# residual = sigma
-# random effects = sd
-#file = 'data/processed/model.brms.mobility_1'
-
-# convergence and model check
-# pp_check(model.brms.mobility_1)
-# check_brms(model.brms.mobility_1)
-# mcmc_trace(plot(model.brms.mobility_1))
-
-mobility_female <-  exp(as_draws_df(fit.model.brms.mobility)$"b_sigma_Intercept")^2
-mobility_male <-  exp((as_draws_df(fit.model.brms.mobility)$"b_sigma_Intercept") + (as_draws_df(fit.model.brms.mobility)$"b_sigma_sexm"))^2
+mobility_female <-  exp(as_draws_df(fit.model.brms.pred)$"b_sigma_Intercept")^2
+mobility_male <-  exp((as_draws_df(fit.model.brms.pred)$"b_sigma_Intercept") + (as_draws_df(fit.model.brms.pred)$"b_sigma_sexm"))^2
 
 posterior_data_mobility = data.frame(mobility_female, mobility_male)
 
@@ -185,28 +174,6 @@ mobility.residual = posterior_data_mobility %>%
                names_prefix = "mobility_",
                values_to ="Estimate")
 
-12:44
-
-ran <- as.data.frame(ranef(fit.model.brms.mobility, summary = FALSE)[["ID"]]) %>%
-  dplyr::select(ends_with(".Intercept")) %>%
-  pivot_longer(cols = ends_with(".Intercept"),
-               names_to = 'ID',
-               names_prefix = "W",
-               values_to ="Estimate") %>%
-  group_by(ID) %>%
-  summarise(mean=mean(Estimate))
-
-
-str(ran)
-sigma <- apply(ran, 1, sd)
-str(sigma)
-
-posteriorIIV <- as_draws_df(fit.model.brms.mobility)[,12:44] %>%
-  gather(ID, value, "r_ID[W01,Intercept]" : "r_ID[W79,Intercept]") %>%
-  separate(ID, c(NA,NA,NA,NA,NA,"r_ID",NA), sep = "([\\__\\[\\,])", fill = "right") %>% 
-  dplyr::left_join(dplyr::select(data, ID, Sex))
-
-as_draws_df(fit.model.brms.mobility)
 
 require(plyr)
 mobility.mean <- ddply(mobility.residual, "Sex", summarise, grp.mean=mean(Estimate))
@@ -223,14 +190,9 @@ ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
 # correlate rIIV with mating success = less predictable males have higher mating success
 
 
+#####
 
-# predictability
 
-mobility_pred <- bf(distance.z~ sex.centred + sex.centred*observation.n + (observation.n|ID), sigma ~ sex, family = gaussian)
-
-fit.model.brms.pred <- brm(mobility_pred, data = morphology_long, save_pars = save_pars(all = TRUE), 
-                               warmup=1000, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
-summary(fit.model.brms.pred,prob = 0.89)
 
 #among
 Va.mobility.f <- as_draws_df(model.brms.mobility_1)$"sd_ID__sexf"^2
@@ -282,6 +244,45 @@ all.mobility.va.delta = va.delta.all.mobility %>%
   as.data.frame()
 
 ###END
+
+
+
+
+# residual = sigma
+# random effects = sd
+#file = 'data/processed/model.brms.mobility_1'
+
+# convergence and model check
+# pp_check(model.brms.mobility_1)
+# check_brms(model.brms.mobility_1)
+# mcmc_trace(plot(model.brms.mobility_1))
+
+12:44
+
+ran <- as.data.frame(ranef(fit.model.brms.mobility, summary = FALSE)[["ID"]]) %>%
+  dplyr::select(ends_with(".Intercept")) %>%
+  pivot_longer(cols = ends_with(".Intercept"),
+               names_to = 'ID',
+               names_prefix = "W",
+               values_to ="Estimate") %>%
+  group_by(ID) %>%
+  summarise(mean=mean(Estimate))
+
+
+str(ran)
+sigma <- apply(ran, 1, sd)
+str(sigma)
+
+posteriorIIV <- as_draws_df(fit.model.brms.mobility)[,12:44] %>%
+  gather(ID, value, "r_ID[W01,Intercept]" : "r_ID[W79,Intercept]") %>%
+  separate(ID, c(NA,NA,NA,NA,NA,"r_ID",NA), sep = "([\\__\\[\\,])", fill = "right") %>% 
+  dplyr::left_join(dplyr::select(data, ID, Sex))
+
+as_draws_df(fit.model.brms.mobility)
+
+
+
+
 
 # within-individual
 all_activity.Vw = post.data.all.activity %>%
