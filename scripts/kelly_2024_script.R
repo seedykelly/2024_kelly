@@ -120,7 +120,7 @@ fit_model.brms.activity.1 = readRDS(file = "data/processed/fit_model.brms.activi
 mobility_rep <- bf(distance.z ~ sex.centred + sex.centred*observation.n + (observation.n|ID), family = gaussian)
 
 fit.model.brms.mobility <- brm(mobility_rep, data = morphology_long, save_pars = save_pars(all = TRUE), 
-                             warmup=100, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+                             warmup=1000, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
 summary(fit.model.brms.mobility,prob = 0.89)
 
 # males travel farther than females as shown elsewhere
@@ -150,6 +150,18 @@ mobility.repeat = post.data.mobility %>%
                      upper_R = rethinking::HPDI(R, prob = 0.95)[2])
 
 # mobility is repeatable 
+
+males <- morphology_long %>%
+  filter(sex=="m")
+mating_rep <- bf(ms ~ distance.z + (1|ID), family = bernoulli(link = "logit"))
+
+fit.model.brms.mating <- brm(mating_rep, data = males, save_pars = save_pars(all = TRUE), 
+                               warmup=1000, iter=8000, seed=12345, thin=2, chains=4, cores= 4)
+
+summary(fit.model.brms.mating, prob = 0.95) # no effect of mating success on distance travelled
+
+ggplot(males, aes(x=distance.z, y=ms)) +
+  geom_point()
 
 
 #### PREDICTABILITY ####
