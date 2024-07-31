@@ -191,7 +191,7 @@ morphology_long$ms <-ifelse(morphology_long$partner_id== "", 0,1)
 
   
 ## brms model results for rmarkdown. All analyses for these models are conducted below. 
-fit_model.brms.activity.1 = readRDS(file = "data/processed/fit_model.brms.activity.1.rds")
+fit_model.brms.activity.1 = readRDS(file = "data/processed/fit.model.brms.pred.rds")
 
 
 ## ---- end
@@ -239,7 +239,124 @@ ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
 # correlate rIIV with mating success = less predictable males have higher mating success
 
 get_variables(fit.model.brms.pred)
-#################################
+
+double_model_cor = bf(distance.tr ~ sex.centred + observation.n + (observation.n|a|ID), sigma ~ (1|a|ID))
+
+m3_brm_cor <- brm(double_model_cor, data = morphology_long, warmup = 6000, iter = 10000, thin=4, chains = 4, cores = 4, init = "random", seed = 12345)
+
+summary(m3_brm_cor) # no sex difference in correlations when data subsetted
+
+get_variables(m3_brm_cor)
+
+as_draws_df(m3_brm_cor)[,11:43]
+
+AN_BT <- readRDS("data/processed/AN_BT.rds")
+
+COR.PERS.PRED <- 
+  as_draws_df(m3_brm_cor, 
+                    pars = c("cor_ID__Intercept__sigma_Intercept")) %>%
+  gather() %>%
+  separate(key,
+           c(NA,"Scale",NA,NA,NA,NA,NA,"Trait",NA),
+           sep = "([\\_\\__\\_\\__\\_\\_\\,])", fill = "right")
+
+CompDHGLM <- readRDS("data/CompositeModel.rds")
+summary(CompDHGLM)
+get_variables(CompDHGLM)
+
+# Slope travel distance
+cov.Trav <-
+  posterior_samples(m3_brm_cor)[,9] *
+  sqrt((posterior_samples(m3_brm_cor)[,5])^2) *
+  sqrt((posterior_samples(m3_brm_cor)[,7])^2)
+var.Trav <- (posterior_samples(m3_brm_cor)[,5])^2
+LT_slope_Trav <- cov.Trav / var.Trav
+
+mean_distance <- as_draws_df(m3_brm_cor, pars = "^r_ID")[1:43] %>%
+  tidyr::gather(ID, value,
+                "r_ID[W01,Intercept]" : 
+                  "r_ID[W75,Intercept]") %>%
+  select(ID,value) %>%
+  separate(ID,
+           c(NA,NA,"ID",NA),
+           sep = "([\\_\\[\\,])", fill = "right") %>%
+  group_by(ID) %>%
+  mutate(Mean = mean(value),
+         Up = mean(value) + 1.96 * sd(value),
+         Lo = mean(value) - 1.96 * sd(value))%>%
+  select (-value)%>%
+  filter(!duplicated(ID))
+
+names(mean_distance)<-c("ID","MeanDist","UpDist","LoDist")
+
+sigma_distance <- as_draws_df(m3_brm_cor, pars = "^r_ID__sigma") %>%
+  tidyr::gather(ID, value,
+                "r_ID__sigma[W01,Intercept]" : 
+                  "r_ID__sigma[W75,Intercept]")%>%
+  select(ID,value) %>%
+  separate(ID,
+           c(NA,"ID",NA),
+           sep = "([\\[\\,])", fill = "right") %>%
+  group_by(ID) %>%
+  mutate(Mean = mean(value),
+         Up = mean(value) + 1.96 * sd(value),
+         Lo = mean(value) - 1.96 * sd(value))%>%
+  select (-value) %>%
+  filter(!duplicated(ID))
+
+names(sigma_distance)<-c("ID","predict_MeanDist","predict_UpDist","predict_LoDist")
+
+correlation_data <- right_join(mean_distance, sigma_distance, by ='ID')
+
+correlation_data_plot <- ggplot() + 
+  geom_segment(data = correlation_data[!duplicated(correlation_data$ID),],
+               aes(x = LoDist,
+                   xend = UpDist,
+                   y = predict_MeanDist,
+                   yend = predict_MeanDist), 
+               color = "#F8766D", alpha = 0.2) +
+  
+  geom_segment(data = correlation_data[!duplicated(correlation_data$ID),], 
+               aes(x = MeanDist,
+                   xend = MeanDist, 
+                   y = predict_LoDist,
+                   yend = predict_UpDist), 
+               color = "#F8766D", alpha = 0.2) +
+  
+  geom_point(data = correlation_data[!duplicated(correlation_data$ID),],
+             aes(x = MeanDist, y = predict_MeanDist,
+                 fill="#F8766D"),shape=22,
+             size=1.4, color = "#F8766D", alpha = 0.8, stroke = 0) +
+  
+  geom_segment(aes(x = -1.5,
+                   xend = 1.5,
+                   y = 0 + mean(LT_slope_Trav)*-1, 
+                   yend = 0 + mean(LT_slope_Trav)*1),
+               color="#F8766D",linewidth=1, alpha = 0.8) +
+  
+  ylab("Mobility predictability") + 
+  xlab("Mobility behavioral type") + 
+  scale_x_continuous(limits = c(-2.5,2.5), breaks = c(-2,0,2))+
+  scale_y_continuous(breaks = c(-0.5,0,0.5), limits = c(-0.75,0.75),
+                     labels =c("-.5","0",".5"), expand = c(0,0)) +
+  #theme_classic(base_size = 10, base_family = "Georgia")+
+  #mytheme +
+  #myscale +
+  theme_bw() +
+  theme(legend.position="none") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.title.x = element_text(size=14)) +
+  theme(axis.title.y = element_text(size=14)) +
+  theme(axis.text.x = element_text(size=12)) +
+  theme(axis.text.y = element_text(size=12)) +
+  annotate("text",x = 1.3, y = 0.65, label = expression(paste(italic("r")*" = -0.14")), size = 4)
+
+
+install.packages("gitcreds")
+library(gitcreds)
+gitcreds_set()
+
+##as_draws()#################################
 # Mean and Dispersion Parameters
 #################################
 
