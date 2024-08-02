@@ -189,10 +189,6 @@ morphology_long$smi.z <- scale(as.numeric(morphology_long$smi))
 # Add mating success
 morphology_long$ms <-ifelse(morphology_long$partner_id== "", 0,1)
 
-  
-## brms model results for rmarkdown. All analyses for these models are conducted below. 
-fit_model.brms.activity.1 = readRDS(file = "data/processed/fit.model.brms.pred.rds")
-
 mating_success_table <- mobility_data %>%
   mutate_all(funs(replace(., .=="", NA))) %>%
   group_by(ID, sex) %>%
@@ -202,7 +198,7 @@ mating_success_table <- mobility_data %>%
 
 #### PREDICTABILITY ####
 
-mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|ID), sigma ~ sex , family = gaussian)
+#mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|ID), sigma ~ sex , family = gaussian)
 mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|a|ID), sigma ~ sex + (1|a|ID), family = gaussian)
 
 fit.model.brms.pred <- brm(mobility_pred, data = morphology_long, save_pars = save_pars(all = TRUE), 
@@ -246,28 +242,18 @@ ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
 fit.model.brms.pred = readRDS(file = "data/processed/fit.model.brms.pred.rds")
 
 qmd.values <- fit.model.brms.pred %>%
-  spread_draws(b_sigma_Intercept,b_sigma_sexm ) %>%
-  median_qi(b_sigma_Intercept,b_sigma_sexm )
-
-qmd.values[[1]]
+  spread_draws(b_sigma_Intercept,b_sigma_sexm,sd_ID__sigma_Intercept) %>%
+  median_qi(b_sigma_Intercept,b_sigma_sexm, sd_ID__sigma_Intercept)
 
 get_variables(fit.model.brms.pred)
 
-#-----------------------------------------------------------------------------------------------
-
 #### Behavioral predictability (individual rIIV's) ####
-
-#-----------------------------------------------------------------------------------------------
 
 # Intercept Distance
 bk.tr.dist <- exp(fixef(fit.model.brms.pred, pars = "sigma_Intercept")[1]) * sd(morphology_long$distance, na.rm = T)
 # 7.66 m
 
-#----------------------------------------------------------------------
-
 #### Coefficient of variation in predictability (CVP) ####
-
-#----------------------------------------------------------------------
 
 log.norm.res.Dist <- exp(posterior_samples(fit.model.brms.pred)$"sd_ID__sigma_Intercept"^2)
 CVP.long.Dist <- sqrt(log.norm.res.Dist - 1)
@@ -275,7 +261,6 @@ mean(CVP.long.Dist);HPDinterval(as.mcmc(CVP.long.Dist),0.95)
 
 ## ---- end ----
 
-get_variables(fit.model.brms.pred)
 
 COR.PERS.PRED <- 
   as_draws_df(fit.model.brms.pred, 

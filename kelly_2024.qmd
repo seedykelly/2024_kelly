@@ -55,7 +55,7 @@ knitr::read_chunk('scripts/kelly_2024_script.R')
 
 
 ### Statistical analysis
-We removed individuals from the final dataset that died during the study (n = 14) or that escaped during testing (n = 2). Our final sample sizes (and summary statistics) are given in @tbl-one. Statistical analyses were performed within the R v. 4.2.1 statistical environment [@r2013]. We assessed the impact of our treatments on body mass by using an analysis of covariance (ANCOVA) wherein body mass after treatment was entered as the response variable and initial body mass was entered as a covariate. ANCOVA is the preferred method for analyzing pre-post data rather than ANOVA on change scores or repeated measures ANOVA, which can be biased when regression toward the mean is present [@bland1994; @dimitrov2003]. Sex, age, and treatment were also entered into the model as fixed factors.
+We removed individuals from the final dataset that died during the study (n = 14) or that escaped during testing (n = 2). Our final sample sizes (and summary statistics) are given in . Statistical analyses were performed within the R v. 4.2.1 statistical environment [@r2013]. We assessed the impact of our treatments on body mass by using an analysis of covariance (ANCOVA) wherein body mass after treatment was entered as the response variable and initial body mass was entered as a covariate. ANCOVA is the preferred method for analyzing pre-post data rather than ANOVA on change scores or repeated measures ANOVA, which can be biased when regression toward the mean is present [@bland1994; @dimitrov2003]. Sex, age, and treatment were also entered into the model as fixed factors.
 
 The variable total distance travelled (cm) was Yeo-Johnson transformed to approximate a Gaussian error distribution [@yeo2000]. We adjusted the latency to visit all quadrant scores by subtracting an individual’s time from the maximum time available (600 s) so that higher values represent more exploratory individuals. This variable was orderNorm transformed to approximate a Gaussian error distribution [@peterson2019]. All data transformations were performed using the R package *bestNormalize* [@peterson2021].
 
@@ -71,7 +71,11 @@ All data were visualized using the R packages *ggplot2* [@wickham2016] and *tidy
 
 # Results
 
-The population level mean residual standard deviation for nightly travel distance was estimated to be `r myround(bk.tr.dist[1],2)` m (back-transformed intercept of the dispersion model exp(y0) = `r myround(qmd.values[[1]],2)`; Supp Table 1). As predicted, females were more predictable in their nightly travel distance than males (y~sex~ = `r myround(qmd.values[[4]],2)` [`r myround(qmd.values[[5]],2)`,`r myround(qmd.values[[6]],2)`]; @fig-one). demonstrating differences in the behavioural predictability of movement across individuals and monitoring years The predicted standard deviation from the mean residual standard deviation (rIIV) for movement varied across individuals ((ω2ID = 0.13 [0.1,0.32]), which suggests that predictability of nightly movement differs across individuals.
+The population level mean residual standard deviation for nightly travel distance was estimated to be `r myround(bk.tr.dist[1],2)` m (back-transformed intercept of the dispersion model exp(y0) = `r myround(qmd.values[[1]],2)`; Supp Table 1). As predicted, females were more predictable in their nightly travel distance than males (y~sex~ = `r myround(qmd.values[[4]],2)` [`r myround(qmd.values[[5]],2)`, `r myround(qmd.values[[6]],2)`]). The predicted standard deviation from the mean residual standard deviation (rIIV) for movement varied across individuals (ω^2^~ID~ = `r myround(qmd.values[[7]],2)` [`r myround(qmd.values[[8]],2)`, `r myround(qmd.values[[9]],2)`]), which suggests that predictability of nightly movement differs across individuals.
+
+No correlation between type and predictability.
+
+No correlation between mating success and predictability () or type ().
 
 
  Discussion
