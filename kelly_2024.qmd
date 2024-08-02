@@ -1,0 +1,96 @@
+---
+title: "Sex difference in the predictability of mobility"
+authors:
+  - name: Clint D. Kelly
+    affiliations:
+      - ref: cdk
+    corresponding: true
+    email: kelly.clint@uqam.ca
+    orcid: 0000-0002-0693-7211
+affiliations:
+  - id: cdk
+    name: Département des Sciences biologiques, Université du Québec à Montréal, Montréal, Canada
+
+filters:
+  - authors-block
+
+crossref:
+  fig-prefix: Figure   # (default is "Figure")
+  tbl-prefix: Table    # (default is "Table")
+
+format:
+  docx:
+    toc: false
+    reference-doc: word-style-template.docx
+bibliography: Bibliography.bib
+csl: behavioral-ecology.csl
+---
+
+```{r echo=FALSE}
+knitr::read_chunk('scripts/kelly_2024_script.R')
+```
+
+```{r libraries, include=FALSE,echo=FALSE, warning=FALSE, results="hide"}
+```
+
+```{r setup, echo=FALSE, warning=FALSE, results="hide", include=FALSE}
+```
+
+```{r data_analysis, echo=FALSE, warning=FALSE, results="hide", include=FALSE}
+```
+
+{{< pagebreak >}}
+
+# Abstract
+
+
+{{< pagebreak >}}
+
+# Introduction
+
+
+
+# Methods
+
+
+
+### Statistical analysis
+We removed individuals from the final dataset that died during the study (n = 14) or that escaped during testing (n = 2). Our final sample sizes (and summary statistics) are given in @tbl-one. Statistical analyses were performed within the R v. 4.2.1 statistical environment [@r2013]. We assessed the impact of our treatments on body mass by using an analysis of covariance (ANCOVA) wherein body mass after treatment was entered as the response variable and initial body mass was entered as a covariate. ANCOVA is the preferred method for analyzing pre-post data rather than ANOVA on change scores or repeated measures ANOVA, which can be biased when regression toward the mean is present [@bland1994; @dimitrov2003]. Sex, age, and treatment were also entered into the model as fixed factors.
+
+The variable total distance travelled (cm) was Yeo-Johnson transformed to approximate a Gaussian error distribution [@yeo2000]. We adjusted the latency to visit all quadrant scores by subtracting an individual’s time from the maximum time available (600 s) so that higher values represent more exploratory individuals. This variable was orderNorm transformed to approximate a Gaussian error distribution [@peterson2019]. All data transformations were performed using the R package *bestNormalize* [@peterson2021].
+
+We report posterior means with 95% credibility intervals (CrI) from Bayesian generalized linear mixed-effects models [*brms* package: @burkner2017]. Inference was based on CrIs that did not overlap zero. Models were run for 8000 iterations (500 warmups) on 4 chains, using relatively uninformative, default priors and a thinning interval of 2 (total post-warmup samples = 9000). Posterior predictive checks were performed to ensure adequate model fits and trace plots confirmed that models converged with low among-chain variability (Rhat = 1.00). 
+
+We investigated the average effects of treatment, age, and sex on travel distance and latency to visit all quadrants using multivariable general linear mixed-effects models. We constructed two models for each of our two dependent behavioural variables and compared them using leave-one-out cross-validation (LOO) [@vehtari2017]. First, we built a full model having age (two levels), sex (two levels), treatment (five levels), test number (two levels) and their interactions as fixed effects (model 1). We then removed the interactions if non-significant and re-ran the model (model 2).  In all models, individual ID was included as a random intercept separately for each age, sex and treatment combination. An age-by-sex-by-treatment interaction in the residual part of the models was included to estimate the within-individual (residual) variance for each combination of age, sex, and treatment. This model structure permitted us to test not only for the effects of age, sex, and treatment on average behaviours but to also quantify their effects on among-individual ($\Delta$V~A~) and residual within-individual behavioural variance ($\Delta$V~W~) separately for each age, sex, and treatment combination [see @chapple2022; @polverino2023]. Both dependent variables were scaled (mean=0, SD=1) before analysis to aid model fitting and we assumed Gaussian error structure for both variables. Test number was left-centered (i.e., test 1 = 0) to set the model intercept at the first trial.
+
+We calculated magnitude differences ($\Delta$V) in both among- ($\Delta$V~A~) and within- ($\Delta$V~W~) individual  variances to test whether these components of variation differed between treatments in young and old female and male beetles  [@royaute2021a]. We leveraged our Bayesian framework to directly estimate the distribution of $\Delta$V by taking the difference in the posterior distribution of each combination of interest. We interpret the posterior mode of ΔV as the estimated strength of ΔV, with 95% credible intervals representing the precision around our estimates [@royaute2021a].
+
+We calculated the unpartitioned phenotypic correlation between distance travelled and latency to visit all quadrants for each age, sex, and treatment combination using Pearson’s product-moment correlation (*r*~p~ ± 95% confidence intervals). We then partitioned the correlations into their components among (*r*~ind~) and within (*r*~e~) individuals by running separate bivariate linear mixed-effects models for each age, sex, and treatment combination. Each model included distance travelled and latency to visit all quadrants as response variables and individual ID as a random intercept.  Like the univariate models above, we ran the bivariate models on four chains for 8000 iterations (1000 warmups), using weakly informative, default priors.
+
+All data were visualized using the R packages *ggplot2* [@wickham2016] and *tidybayes* [@kay2020].
+
+# Results
+
+The population level mean residual standard deviation for nightly travel distance was estimated to be `r myround(bk.tr.dist[1],2)` m (back-transformed intercept of the dispersion model exp(y0) = `r myround(qmd.values[[1]],2)`; Supp Table 1). As predicted, females were more predictable in their nightly travel distance than males (y~sex~ = `r myround(qmd.values[[4]],2)` [`r myround(qmd.values[[5]],2)`,`r myround(qmd.values[[6]],2)`]; @fig-one). demonstrating differences in the behavioural predictability of movement across individuals and monitoring years The predicted standard deviation from the mean residual standard deviation (rIIV) for movement varied across individuals ((ω2ID = 0.13 [0.1,0.32]), which suggests that predictability of nightly movement differs across individuals.
+
+
+ Discussion
+
+
+# Declarations
+
+**Competing interests** The authors have no financial or non-financial competing interests to declare.
+
+**Authors' contributions** Both authors contributed to the conception and design of the study. AB collected the data. CDK analyzed the data and wrote the first draft of the manuscript. AB and CDK reviewed and approved the manuscript.
+
+**Funding** Natural Sciences and Engineering Research Council of Canada (NSERC).
+
+**Availability of data and materials** Data will be made available on Open Science Framework at the time of publication.
+
+# References {.unnumbered}
+
+::: {#refs}
+:::
+
+{{< pagebreak >}}
+

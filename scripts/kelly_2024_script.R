@@ -19,7 +19,7 @@ library(tidybayes)
 library(MCMCglmm)
 library(bayestestR)
 library(modelr)
-library(forcats)
+library(broom.mixed)
 library(DHARMa)
 library(bayesplot)
 library(flextable)
@@ -144,7 +144,7 @@ cor_calc <- function(slopes, intercepts){
 
 
 
-## ---- data_analysis ----
+## ---- setup ----
 mobility_data<- read.csv(file="data/raw/giant_weta_behaviour.csv", header=TRUE, sep=",", dec=".")
 morphological_data<- read.csv(file="data/raw/morphology_giant_weta.csv", header=TRUE, sep=",", dec=".")
 condition_data<-read_csv(file="data/raw/giant_weta_composite_data.csv") #these are measures from general weta population, not individuals in the current study
@@ -193,13 +193,17 @@ morphology_long$ms <-ifelse(morphology_long$partner_id== "", 0,1)
 ## brms model results for rmarkdown. All analyses for these models are conducted below. 
 fit_model.brms.activity.1 = readRDS(file = "data/processed/fit.model.brms.pred.rds")
 
-
+mating_success_table <- mobility_data %>%
+  mutate_all(funs(replace(., .=="", NA))) %>%
+  group_by(ID, sex) %>%
+  summarise(mates=sum(!is.na(partner_id)), n=n(), ms=mates/n) #number of mates
 ## ---- end
 
 
 #### PREDICTABILITY ####
 
 mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|ID), sigma ~ sex , family = gaussian)
+mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|a|ID), sigma ~ sex + (1|a|ID), family = gaussian)
 
 fit.model.brms.pred <- brm(mobility_pred, data = morphology_long, save_pars = save_pars(all = TRUE), 
                                warmup=6000, iter=10000, seed=12345, thin=4, chains=4, cores= 4, file = 'data/processed/fit.model.brms.pred')
@@ -238,41 +242,58 @@ ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
 # males less predictable than females
 # correlate rIIV with mating success = less predictable males have higher mating success
 
+## ---- data_analysis ----
+fit.model.brms.pred = readRDS(file = "data/processed/fit.model.brms.pred.rds")
+
+qmd.values <- fit.model.brms.pred %>%
+  spread_draws(b_sigma_Intercept,b_sigma_sexm ) %>%
+  median_qi(b_sigma_Intercept,b_sigma_sexm )
+
+qmd.values[[1]]
+
 get_variables(fit.model.brms.pred)
 
-double_model_cor = bf(distance.tr ~ sex.centred + observation.n + (observation.n|a|ID), sigma ~ (1|a|ID))
+#-----------------------------------------------------------------------------------------------
 
-m3_brm_cor <- brm(double_model_cor, data = morphology_long, warmup = 6000, iter = 10000, thin=4, chains = 4, cores = 4, init = "random", seed = 12345)
+#### Behavioral predictability (individual rIIV's) ####
 
-summary(m3_brm_cor) # no sex difference in correlations when data subsetted
+#-----------------------------------------------------------------------------------------------
 
-get_variables(m3_brm_cor)
+# Intercept Distance
+bk.tr.dist <- exp(fixef(fit.model.brms.pred, pars = "sigma_Intercept")[1]) * sd(morphology_long$distance, na.rm = T)
+# 7.66 m
 
-as_draws_df(m3_brm_cor)[,11:43]
+#----------------------------------------------------------------------
 
-AN_BT <- readRDS("data/processed/AN_BT.rds")
+#### Coefficient of variation in predictability (CVP) ####
+
+#----------------------------------------------------------------------
+
+log.norm.res.Dist <- exp(posterior_samples(fit.model.brms.pred)$"sd_ID__sigma_Intercept"^2)
+CVP.long.Dist <- sqrt(log.norm.res.Dist - 1)
+mean(CVP.long.Dist);HPDinterval(as.mcmc(CVP.long.Dist),0.95)
+
+## ---- end ----
+
+get_variables(fit.model.brms.pred)
 
 COR.PERS.PRED <- 
-  as_draws_df(m3_brm_cor, 
+  as_draws_df(fit.model.brms.pred, 
                     pars = c("cor_ID__Intercept__sigma_Intercept")) %>%
   gather() %>%
   separate(key,
            c(NA,"Scale",NA,NA,NA,NA,NA,"Trait",NA),
            sep = "([\\_\\__\\_\\__\\_\\_\\,])", fill = "right")
 
-CompDHGLM <- readRDS("data/CompositeModel.rds")
-summary(CompDHGLM)
-get_variables(CompDHGLM)
-
 # Slope travel distance
 cov.Trav <-
-  posterior_samples(m3_brm_cor)[,9] *
-  sqrt((posterior_samples(m3_brm_cor)[,5])^2) *
-  sqrt((posterior_samples(m3_brm_cor)[,7])^2)
-var.Trav <- (posterior_samples(m3_brm_cor)[,5])^2
-LT_slope_Trav <- cov.Trav / var.Trav
+  posterior_samples(fit.model.brms.pred)[,11] *
+  sqrt((posterior_samples(fit.model.brms.pred)[,7])^2) *
+  sqrt((posterior_samples(fit.model.brms.pred)[,9])^2)
+var.Trav <- (posterior_samples(fit.model.brms.pred)[,7])^2
+slope_Trav <- cov.Trav / var.Trav
 
-mean_distance <- as_draws_df(m3_brm_cor, pars = "^r_ID")[1:43] %>%
+mean_distance <- as_draws_df(fit.model.brms.pred, pars = "^r_ID")[1:47] %>%
   tidyr::gather(ID, value,
                 "r_ID[W01,Intercept]" : 
                   "r_ID[W75,Intercept]") %>%
@@ -289,7 +310,7 @@ mean_distance <- as_draws_df(m3_brm_cor, pars = "^r_ID")[1:43] %>%
 
 names(mean_distance)<-c("ID","MeanDist","UpDist","LoDist")
 
-sigma_distance <- as_draws_df(m3_brm_cor, pars = "^r_ID__sigma") %>%
+sigma_distance <- as_draws_df(fit.model.brms.pred, pars = "^r_ID__sigma") %>%
   tidyr::gather(ID, value,
                 "r_ID__sigma[W01,Intercept]" : 
                   "r_ID__sigma[W75,Intercept]")%>%
@@ -314,25 +335,25 @@ correlation_data_plot <- ggplot() +
                    xend = UpDist,
                    y = predict_MeanDist,
                    yend = predict_MeanDist), 
-               color = "#F8766D", alpha = 0.2) +
+               color = "#F8766D", alpha = 0.3) +
   
   geom_segment(data = correlation_data[!duplicated(correlation_data$ID),], 
                aes(x = MeanDist,
                    xend = MeanDist, 
                    y = predict_LoDist,
                    yend = predict_UpDist), 
-               color = "#F8766D", alpha = 0.2) +
+               color = "#F8766D", alpha = 0.3) +
   
   geom_point(data = correlation_data[!duplicated(correlation_data$ID),],
              aes(x = MeanDist, y = predict_MeanDist,
                  fill="#F8766D"),shape=22,
-             size=1.4, color = "#F8766D", alpha = 0.8, stroke = 0) +
+             size=1.4, color = "#F8766D", alpha = 0.9, stroke = 0) +
   
   geom_segment(aes(x = -1.5,
                    xend = 1.5,
-                   y = 0 + mean(LT_slope_Trav)*-1, 
-                   yend = 0 + mean(LT_slope_Trav)*1),
-               color="#F8766D",linewidth=1, alpha = 0.8) +
+                   y = 0 + mean(slope_Trav)*-1, 
+                   yend = 0 + mean(slope_Trav)*1),
+               color="#F8766D",linewidth=1, alpha = 0.9) +
   
   ylab("Mobility predictability") + 
   xlab("Mobility behavioral type") + 
@@ -349,7 +370,46 @@ correlation_data_plot <- ggplot() +
   theme(axis.title.y = element_text(size=14)) +
   theme(axis.text.x = element_text(size=12)) +
   theme(axis.text.y = element_text(size=12)) +
-  annotate("text",x = 1.3, y = 0.65, label = expression(paste(italic("r")*" = -0.14")), size = 4)
+  annotate("text",x = 1.3, y = 0.65, label = expression(paste(italic("r")*" = -0.10")), size = 4)
+
+### behavioural type vs mating success
+
+mating_type_data <- right_join(mean_distance, mating_success_table, by ='ID') %>%
+  filter(!is.na(MeanDist))
+
+# x <-cor.test(mating_behaviour_data$Mean, mating_behaviour_data$ms)
+# str(x)
+# mating_behaviour_data %>%
+#   group_by(sex) %>%
+#   summarise(correlation = cor(Mean, ms))
+
+mating_type_corr <- mating_type_data %>%
+  group_by(sex) %>%
+  summarize(COR = stats::cor.test(MeanDist, ms)$estimate,
+            pval = stats::cor.test(MeanDist, ms)$p.value,
+            df = stats::cor.test(MeanDist, ms)$parameter
+  ) %>%
+  ungroup()
+
+### predictability vs mating success
+
+mating_predictability_data <- right_join(sigma_distance, mating_success_table, by ='ID') %>%
+  filter(!is.na(predict_MeanDist))
+
+mating_predict_corr <- mating_predictability_data %>%
+  group_by(sex) %>%
+  summarize(COR = stats::cor.test(predict_MeanDist, ms)$estimate,
+            pval = stats::cor.test(predict_MeanDist, ms)$p.value,
+            df = stats::cor.test(predict_MeanDist, ms)$parameter
+  ) %>%
+  ungroup()
+
+exp(0.21)^2
+
+## ---- end
+
+
+
 
 
 install.packages("gitcreds")
