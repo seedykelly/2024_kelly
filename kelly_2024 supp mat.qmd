@@ -1,0 +1,45 @@
+---
+title: "Supplementary Material: Sex difference in the predictability of mobility"
+authors:
+  - name: Clint D. Kelly
+    affiliations:
+      - ref: cdk
+    corresponding: true
+    email: kelly.clint@uqam.ca
+    orcid: 0000-0002-0693-7211
+affiliations:
+  - id: cdk
+    name: Département des Sciences biologiques, Université du Québec à Montréal, Montréal, Canada
+
+filters:
+  - authors-block
+
+crossref:
+  fig-title: Figure S  # (default is "Figure")
+  tbl-prefix: Table    # (default is "Table")
+
+format:
+  docx:
+    toc: false
+    reference-doc: word-style-template.docx
+bibliography: Bibliography.bib
+csl: behavioral-ecology.csl
+---
+
+```{r echo=FALSE}
+knitr::read_chunk('scripts/kelly_2024_script.R')
+```
+
+```{r libraries, include=FALSE,echo=FALSE, warning=FALSE, results="hide"}
+```
+
+```{r setup, echo=FALSE, warning=FALSE, results="hide", include=FALSE}
+```
+
+```{r data_analysis, echo=FALSE, warning=FALSE, results="hide", include=FALSE}
+```
+
+{{< pagebreak >}}
+ @fig-one-supp)
+
+![Among-individual correlation (r) between mobility behaviour type and behavioural predictability. Red squares represent individual (n=33) posterior means and 95% credible intervals.](figure_1_supp.png){#fig-one-supp}

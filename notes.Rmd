@@ -1,0 +1,225 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+
+```{r}
+#| echo: false
+#| results: asis
+block_section(
+  prop_section(
+    page_size = page_size(orient = "portrait"),
+    type = "continuous"
+  )
+)
+```
+
+```{r}
+#| echo: false
+#| results: asis
+#| warning: FALSE
+#| label: tbl-one
+#| tbl-cap: Mean (± SD) activity (distance travelled, cm) and exploration (latency to visit all quadrants of arena, s) for young (9-d old) and old (31-d old) adult female and male *Tenebrio molitor* beetles that recieved one of five experimental treatments. Means for each individual (N) were used to calculate group means. Two repeated behavioural measures (separated by 62 ± 2 h) were taken for each of the N = 929 beetles giving N = 1858 behavioural observations. 
+
+summary_1 <- merged_data_four %>%
+  group_by(id, age, treatment, sex) %>%
+  summarise(mean_distance=mean(distance,na.rm=TRUE), mean_explore=mean(explore,na.rm=TRUE), mean_centre=mean(time_in_centre,na.rm=TRUE), n=n()) %>%
+  group_by(sex, age, treatment) %>%
+  summarise(distance=mean(mean_distance,na.rm=TRUE),dist.sd=sd(mean_distance), explore=mean(mean_explore,na.rm=TRUE), exp.sd=sd(mean_explore), n=n()) %>%
+  pivot_wider(                                         # Pivot from long to wide
+    values_from = c(distance,dist.sd,explore,exp.sd, n),                       # new values are from ct and count columns
+    names_from = c("age")) %>%
+  relocate(distance_Young, dist.sd_Young, explore_Young, exp.sd_Young, n_Young, distance_Old, dist.sd_Old, explore_Old, 
+           exp.sd_Old, n_Old) %>%
+  relocate(treatment, .before = distance_Young) %>%
+  relocate(sex,.before = treatment) %>%
+  group_by(sex) %>%
+  arrange(match(treatment, c("handled", "injured", "saline", "low", "high")), desc(treatment),.by_group = TRUE) %>%
+  mutate(treatment= recode(treatment, handled="Handled", injured="Injured", saline="Saline",low="Low LPS", high="High LPS")) %>%
+  mutate(sex= recode(sex, Female="(a) Females", Male="(b) Males")) %>%
+  mutate(across(c(distance_Young,dist.sd_Young,explore_Young,exp.sd_Young,
+                  distance_Old,dist.sd_Old,explore_Old,exp.sd_Old,
+                  distance_Young,dist.sd_Young,explore_Young,exp.sd_Young,
+                  distance_Old,dist.sd_Old,explore_Old,exp.sd_Old), ~ sprintf("%0.1f", .x))) %>%
+  unite(col='dist_y', c('distance_Young', 'dist.sd_Young'), sep=' ± ') %>%
+  unite(col='exp_y', c('explore_Young', 'exp.sd_Young'), sep=' ± ') %>%
+  unite(col='dist_o', c('distance_Old', 'dist.sd_Old'), sep=' ± ') %>%
+  unite(col='exp_o', c('explore_Old', 'exp.sd_Old'), sep=' ± ') %>%
+  as_grouped_data(groups = c("sex"), columns=NULL) 
+
+typology <- data.frame(
+  col_keys = c( "treatment",
+                "dist_y", "exp_y", "n_Young", "dist_o","exp_o", "n_Old"
+  ),
+  what = c("","Young", "Young","Young","Old","Old","Old"),
+  measure = c("treatment", "Travel distance (cm)", "Quadrant visitation (s)","N", "Travel distance (cm)", "Quadrant visitation (s)","N"),
+  stringsAsFactors = FALSE
+)
+
+big_border <- fp_border(width = 2)
+sample_sizes<-flextable(summary_1,col_keys = c(
+  "treatment","dist_y", "exp_y", "n_Young", "break1", "dist_o","exp_o","n_Old")) %>%
+  set_header_df(mapping = typology, key = "col_keys") %>%
+  flextable::compose(
+    i = ~ !is.na(sex), # when var_group not NA
+    j = "treatment", # on column "var"
+    # create a paragraph containing a chunk containing value of `var_group`
+    value = as_paragraph(as_chunk(sex))) %>%
+  set_header_labels(treatment = "Treatment") %>%
+  merge_at(i = 1, j = 2:4, part = "header") %>%
+  merge_at(i = 1, j = 6:8, part = "header") %>%
+  align(align = "center", j = c(2:8), part = "all") %>%
+  hline(i=c(1),j=c(2:4, 6:8), part="header") %>%
+  hline(i=c(2),j=c(1:8), part="header") %>%
+  hline_top(part = "all", border=big_border) %>%
+  hline_bottom(part = "all", border=big_border) %>%
+  bold(i=c(1:2),j=c(1:8), part="header") %>%
+  bold(i=c(1,7),j=c(1:2), part="body") %>%
+  italic(i=c(1,7),j=c(1:2), part="body") %>%
+  merge_at(i=1, j=c(1:2), part="body") %>%
+  merge_at(i=7, j=c(1:2), part="body") %>%
+  font(fontname = "Times New Roman", part="all") %>%
+  autofit()
+sample_sizes
+```
+
+```{r}
+#| echo: false
+#| results: asis
+block_section(
+  prop_section(
+    page_size = page_size(orient = "landscape"),
+    type = "continuous"
+  )
+)
+```
+
+{{< pagebreak >}}
+
+##Figures
+
+![Predicted behavioural expression of young (orange) and old (blue) individuals that do (treatment) or do not (control) receive an immune challenge. (a) If an immune challenge causes sickness behaviour then we expect that young and old immune-challenged individuals will similarly decrease their population-level average behavioural expression compared with controls (solid circles). Because immune-challenged individuals are expected to behave similarly, their among-individual behavioural variation should be smaller than that of controls. (b) If an immune challenge causes old individuals to terminally invest then their population-level average behavioural expression (solid blue dot) should be higher than controls and young immune-challenged individuals. We also expect the among-individual variation of young and old immune-challenged individuals to be similar. Alternatively, perhaps some old individuals will terminally invest while others express sickness behaviour. In this scenario, we expect the variation among old individuals to increase (dashed blue line) and the population-level average to decline (light blue dot) to the level of young immune-challenged individuals. (c) We expect to find little variation in behaviour between behavioural tests in control animals. If an immune-challenged individual’s sickness remains stable (i.e. there is no recovery or increased illness) between behavioural tests then we do not expect to find significant within-individual variation within either age category. (d) However, if there is a change in health between tests (e.g. individuals become sicker) then we expect within-individual variation to increase in old immune-challenged individuals. Solid circles represent the population-level average and horizontal lines represent the behaviour of an individual through time.](figure_1.png){#fig-one}
+
+
+check_brms <- function(model,             # brms model
+                       integer = FALSE,   # integer response? (TRUE/FALSE)
+                       plot = TRUE,       # make plot?
+                       ...                # further arguments for DHARMa::plotResiduals 
+) {
+  
+  mdata <- brms::standata(model)
+  if (!"Y" %in% names(mdata))
+    stop("Cannot extract the required information from this brms model")
+  
+  dharma.obj <- DHARMa::createDHARMa(
+    simulatedResponse = t(brms::posterior_predict(model, ndraws = 1000)),
+    observedResponse = mdata$Y, 
+    fittedPredictedResponse = apply(
+      t(brms::posterior_epred(model, ndraws = 1000, re.form = NA)),
+      1,
+      mean),
+    integerResponse = integer)
+  
+  if (isTRUE(plot)) {
+    plot(dharma.obj, ...)
+  }
+  
+  invisible(dharma.obj)
+  
+}
+
+# Load Functions
+
+# Load in the functions that will be needed to process output from the models to derive the various estimates needed for calculating the necessary parameters:
+  
+# {r funcs, include=TRUE, message=FALSE, warning=FALSE, class.source='klippy'}
+
+# Population-level intercept   
+func_Bp <- function(B0, B1){
+  Bp <- (2*B0 + B1)/2 # assumes 50/50 ratio for B1 (in our example = sex)
+  return(Bp)
+}
+
+# Total variance, equation 40. Function for summing dataframe of variance components 
+func_sum_var <- function(vars){
+  sum_var <- sapply(1:nrow(vars), function(x) sum(vars[x,], na.rm = T))
+  return(sum_var)
+}
+
+
+# Variance for fixed effects
+func_var_fixed <- function(B1, B2, data){
+  # model matrix for fixed effects
+  X <- model.matrix(~ 1 + sex.centred + sex.centred:observation.n , data = data) 
+  X1 <- X[,2]
+  X2 <- X[,3]
+  var_fixed <- sapply(1:length(B1), function(x) var(X1*B1[x] + X2*B2[x]))
+  return(var_fixed)
+}		
+
+# within-individual standard deviation
+func_var_within <- function(Bpv, sigma_v0, var_fixed_v){
+  
+  # summed variance components
+  var_within_exp <- func_sum_var(vars = data.frame(sigma_v0^2, var_fixed_v))
+  # conversion back from log scale
+  var_within <- func_ln_convert(mu_ln = Bpv, sigma_ln = sqrt(var_within_exp))$mu_raw
+  
+  return(var_within)
+}
+
+# Repeatability for the dispersion model for DHGLM    
+func_Rp_var <- function(Bpv, sigma_v0, var_fixed_v, var_p){
+  
+  # sum of IDv0 and fixedV = total variance in residual variance on log-normal scale:
+  var_residvar_exp <- func_sum_var(vars = data.frame(sigma_v0^2, var_fixed_v))
+  # converting back to same scale as mean model: 
+  sigma_residvar <- func_ln_convert(mu_ln = Bpv, sigma_ln = sqrt(var_residvar_exp))$sigma_raw
+  
+  # variance in phenotypic variance
+  total_var_var <- 2*var_p^2 + 3*sigma_residvar^2
+  
+  # getting variance in individual component through the preservation of the proportionality (i.e. ratio method)
+  ratio <- sigma_v0^2/(var_residvar_exp)
+  var_ID <- sigma_residvar^2*ratio
+  
+  Rp_var <- var_ID/total_var_var
+  return(Rp_var)
+}
+
+# Convert from ln to raw scale
+func_ln_convert <- function(mu_ln, sigma_ln){
+  
+  mu_raw <- exp(mu_ln + sigma_ln^2/2)
+  var_raw <- (exp(sigma_ln^2)-1)*exp(2*mu_ln + sigma_ln^2)
+  
+  x <- data.frame(mu_raw, sigma_raw = sqrt(var_raw))
+  return(x)
+}	 
+
+
+# Function takes random slopes and intercepts and calculates the between individual correlation between them and returns this correlation for each row (i.e., posterior sampling iteration). It returns a posterior distribution of the correlation. 
+
+cor_calc <- function(slopes, intercepts){
+  cors <- c()
+  for(i in 1:dim(intercepts)[1]){
+    cors <- c(cors, cor(as.numeric(slopes[i,]),as.numeric(intercepts[i,])))
+  }
+  return(cors)
+}
+
