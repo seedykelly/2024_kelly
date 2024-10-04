@@ -42,4 +42,8 @@ knitr::read_chunk('scripts/kelly_2024_script.R')
 {{< pagebreak >}}
  @fig-one-supp)
 
-![Among-individual correlation (r) between mobility behaviour type and behavioural predictability. Red squares represent individual (n=33) posterior means and 95% credible intervals.](figure_1_supp.png){#fig-one-supp}
+![Frequency histograms of nightly distance travelled (m) by female (n = 127 total observations) and male (n = 108 total observations) Cook Strait giant weta (*Deinacrida rugosa*) on Maud Island, NZ. Total observations are from n = 16 females and n = 17 males.](figure_1_supp.png){#fig-one-supp}
+{{< pagebreak >}}
+ @fig-two-supp)
+
+![Among-individual correlation (r) between mobility behaviour type and behavioural predictability. Red squares represent individual (n=33) posterior means and 95% credible intervals.](figure_2_supp.png){#fig-two-supp}
