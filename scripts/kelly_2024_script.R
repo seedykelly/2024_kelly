@@ -95,7 +95,7 @@ mating_success_table <- morphology_long %>%
 
 #### PREDICTABILITY ####
 
-#mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|ID), sigma ~ sex , family = gaussian)
+# mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|ID), sigma ~ sex , family = gaussian)
 mobility_pred <- bf(distance.tr ~ sex.centred + observation.n + sex.centred:observation.n + (observation.n|a|ID), sigma ~ sex + (1|a|ID), family = gaussian)
 
 fit.model.brms.pred <- brm(mobility_pred, data = morphology_long, save_pars = save_pars(all = TRUE), 
@@ -296,7 +296,25 @@ correlation_data_plot <- ggplot() +
   theme(axis.text.x = element_text(size=12)) +
   theme(axis.text.y = element_text(size=12)) +
   annotate("text",x = 1.3, y = 0.65, label = expression(paste(italic("r")*" = -0.10")), size = 4)
-ggsave(filename="figure_1_supp.png", width=8, height=8, dpi=800,antialias="default")
+ggsave(filename="figure_2_supp.png", width=8, height=8, dpi=800,antialias="default")
+
+# New facet label names for supp variable
+sex.labs <- c("Females", "Males")
+names(sex.labs) <- c("f", "m")
+
+# distribution histograms
+distributions <- ggplot(mobility_data, aes(x = distance)) +
+  geom_histogram() + 
+  facet_grid(~sex, labeller = labeller(sex = sex.labs)) +
+  xlab('Distance travelled per night (m)') +
+  ylab('Count') +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(axis.title.x = element_text(size=14)) +
+  theme(axis.title.y = element_text(size=14)) +
+  theme(axis.text.x = element_text(size=12)) +
+  theme(axis.text.y = element_text(size=12))
+ggsave(filename="figure_1.png", width=8, height=8, dpi=800,antialias="default")
 
 
 ##############
