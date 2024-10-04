@@ -90,6 +90,13 @@ morphology_long$ms <-ifelse(morphology_long$partner_id== "", 0,1)
 mating_success_table <- morphology_long %>%
   group_by(ID, sex) %>%
   dplyr::summarise(mates=sum(ms), n=n(), ms=mates/n) #number of mates
+
+# total number of observations by sex
+obs_num <- mobility_data %>%
+  group_by(sex) %>%
+  dplyr::summarise(n=n())
+
+
 ## ---- end
 
 
@@ -314,7 +321,7 @@ distributions <- ggplot(mobility_data, aes(x = distance)) +
   theme(axis.title.y = element_text(size=14)) +
   theme(axis.text.x = element_text(size=12)) +
   theme(axis.text.y = element_text(size=12))
-ggsave(filename="figure_1.png", width=8, height=8, dpi=800,antialias="default")
+ggsave(filename="figure_1_supp.png", width=8, height=8, dpi=800,antialias="default")
 
 
 ##############
