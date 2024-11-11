@@ -253,11 +253,11 @@ sex.diff <- ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
       geom_density(alpha=0.6)+ 
       geom_vline(data = mobility.mean, aes(xintercept=grp.mean, color = Sex),
              linetype="dashed", linewidth=1,show.legend=FALSE) +
-      xlab('Residual within-individual variatIon in mobility\n (i.e. predictability)') +
+      xlab('Residual within-individual variation in mobility\n (i.e. predictability)') +
       ylab('Density') +
       theme_bw() +
       theme_bw() +
-      theme(legend.position = c(0.75,.75)) +
+      theme(legend.position = "inside",legend.position.inside = c(0.75,0.75)) +
       theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
       theme(axis.title.x = element_text(size=14)) +
       theme(axis.title.y = element_text(size=14)) +
