@@ -39,6 +39,8 @@ knitr::read_chunk('scripts/kelly_2024_script.R')
 ```{r data_analysis, echo=FALSE, warning=FALSE, results="hide", include=FALSE}
 ```
 
+{{< pagebreak >}}
+
 To determine the fraction of the total variance that is explained by variance in sex, I included sex as a fixed factor in my repeatability analysis and then extracted the variance explained by it. The variation explained by sex was 0.079 [0.001, 0.253]. 
 
 {{< pagebreak >}}

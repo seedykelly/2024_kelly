@@ -214,7 +214,7 @@ names(sigma_distance)<-c("ID","predict_MeanDist","predict_UpDist","predict_LoDis
 sex.data <- morphological_data %>%
   select(ID,Sex)
 
-mating_type_data <- right_join(mean_distance, sex.data, mating_success_table, by ='ID') %>%
+mating_type_data <- right_join(mean_distance, mating_success_table, by ='ID') %>%
   filter(!is.na(MeanDist))
 
 # x <-cor.test(mating_behaviour_data$Mean, mating_behaviour_data$ms)
@@ -253,7 +253,7 @@ sex.diff <- ggplot(mobility.residual, aes(x = Estimate, fill = Sex)) +
       geom_density(alpha=0.6)+ 
       geom_vline(data = mobility.mean, aes(xintercept=grp.mean, color = Sex),
              linetype="dashed", linewidth=1,show.legend=FALSE) +
-      xlab('Residual within-individual variaiton in mobility\n (i.e. predictability)') +
+      xlab('Residual within-individual variatIon in mobility\n (i.e. predictability)') +
       ylab('Density') +
       theme_bw() +
       theme_bw() +
@@ -282,17 +282,14 @@ correlation_data_plot <- ggplot() +
                    y = predict_LoDist,
                    yend = predict_UpDist, colour=Sex),
                alpha = 0.3) +
-
   geom_point(data = correlation_data[!duplicated(correlation_data$ID),],
              aes(x = MeanDist, y = predict_MeanDist,
                  colour=Sex), alpha=0.9) +
-
   geom_segment(aes(x = -1.5,
                    xend = 1.5,
                    y = 0 + mean(slope_Trav)*-1,
                    yend = 0 + mean(slope_Trav)*1),
                linewidth=1, alpha = 0.9) +
-
   ylab("Mobility predictability") +
   xlab("Mobility behavioral type") +
   scale_x_continuous(limits = c(-2.5,2.5), breaks = c(-2,0,2))+
