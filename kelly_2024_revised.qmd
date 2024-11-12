@@ -99,9 +99,11 @@ In conclusion, the sex difference in behavioural predictability exhibited by *D.
 
 # Declarations
 
-**Funding** Natural Sciences and Engineering Research Council of Canada (NSERC).
+**Funding.** Natural Sciences and Engineering Research Council of Canada (NSERC).
 
-**Availability of data and materials** The data are provided online at the Open Science Framework [@kelly2024d].
+**Availability of data and materials.** The data are provided online at the Open Science Framework [@kelly2024d].
+
+**Acknowledgements**. I thank Darryl Gwynne for help in the field and two anonymous referees for constructive comments and suggestions on the manuscript.
 
 # References {.unnumbered}
 
